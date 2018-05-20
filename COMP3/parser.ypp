@@ -1,15 +1,20 @@
 %{
 	#include <iostream>
 	#include <stdlib.h>
+	#include <stack>
 	#include "output.hpp"
 	#include "parser.hpp"
-	#include "comdef.h"
 
 	using namespace std;
+
+	stack<Table> tableStack;
+	stack<int> offsetStack;
 
 	extern int yylex();
 	extern int yylineno;
 	int yyerror(char * message);
+	void open_new_scope();
+	void close_scope();
 %}
 
 %token VOID
@@ -45,31 +50,46 @@
 
 %%
 
-Program		:	Funcs	
+Program		: {
+				tableStack = new stack<Table>();
+				offsetStack = new stack<int>();
+				FuncTable f_table = new FuncTable();
+			
+				f_table.push(new FuncTableEntry("print", OUR_VOID, (new list<FormalsDecl>()).insert(new FormalsDecl(OUR_STRING, "str")));
+				f_table.push(new FuncTableEntry("printi", OUR_VOID, (new list<FormalsDecl>()).insert(new FormalsDecl(OUR_INT, "i"))));
+			
+				tableStack.push(f_table);
+				offsetStack.push(0);
+			}	Funcs
 			;
 
 Funcs		:
 			|	FuncDecl Funcs
 			;
 
-FuncDecl	:	RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE
+		FuncDecl:	RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE{
+				
+			}
 			;
 
 RetType		:	Type
 			|	VOID
 			;
 
-Formals		:	
-			|	FormalsList
+Formals		:	  { $$ = new Formals(new FormalsList();); }
+				| FormalsList{ $$ = new Formals($1); }
 			;
 
-FormalsList	:	FormalsDecl
-			|	FormalsDecl COMMA FormalsList
+FormalsList:	FormalsDecl { $$ = new FormalsList();
+							$$.addFormal($1); }
+			|	FormalsDecl  COMMA FormalsList { $$ = new FormalsList();
+												 $$.addFormal($1);
+												 $$.mergeList($3); }
 			;
 
-FormalsDecl	:	Type ID
-			|	Type ID LBRACK NUM RBRACK
-			|	Type ID LBRACK NUM B RBRACK
+FormalsDecl:	Type ID { $$ = new FormalsDecl($1.type,$2.str_val);}
+			|	Type ID LBRACK NUM RBRACK { $$ = new FormalsDecl($1.type,$2.str_val,$4.int_val,true); }
+			|	Type ID LBRACK NUM B RBRACK{ $$ = new FormalsDecl($1.type,$2.str_val,$4.int_val,true,true); }
 			;
 
 Statements	:	Statement
@@ -133,4 +153,13 @@ int yyerror(char * message)
 {
 	cout<<"Parse error: "<<message<<endl;
 	exit(0);
+}
+
+void open_new_scope()
+{
+
+}
+
+void close_scope() {
+
 }
