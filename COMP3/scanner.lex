@@ -2,40 +2,9 @@
 /* Declarations section */
 #include <stdio.h>
 #include "output.hpp"
+#include "comdef.h"
+#include "source.tab.hpp"
 
-typedef enum tokens_e
-{
-	VOID,
-	INT,
-	BYTE,
-	B,
-	BOOL,
-	AND,
-	OR,
-	NOT,
-	TRUE,
-	FALSE,
-	RETURN,
-	IF,
-	ELSE,
-	WHILE,
-	BREAK,
-	SC,
-	COMMA,
-	LPAREN,
-	RPAREN,
-	LBRACE,
-	RBRACE,
-	LBRACK,
-	RBRACK,
-	ASSIGN,
-	RELOP,
-	BINOP,
-	ID,
-	NUM,
-	STRING,
-	EOF1
-} tokens;
 
 enum tokens showToken(our_tokens t);
 void errorHandler();

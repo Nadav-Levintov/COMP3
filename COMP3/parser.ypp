@@ -1,61 +1,126 @@
 %{
-	#include "attributes.h"
 	#include <iostream>
 	#include <stdlib.h>
-	typedef enum { OP_AND, OP_OR } opType;
+	#include "output.hpp"
+	#include "parser.hpp"
+	#include "comdef.h"
 
 	using namespace std;
 
 	extern int yylex();
+	extern int yylineno;
 	int yyerror(char * message);
 %}
 
-%token tklp tkrp
-%token<constVal> tkconst
-%left tkor
-%left tkand
-
-%type<exp> Exp
+%token VOID
+%token INT
+%token BYTE
+%token B
+%token BOOL
+%left AND
+%left OR
+%right NOT
+%token TRUE
+%token FALSE
+%token RETURN
+%token IF
+%token ELSE
+%token WHILE
+%token BREAK
+%token SC
+%token COMMA
+%left LPAREN
+%left RPAREN
+%left LBRACE
+%left RBRACE
+%left LBRACK
+%left RBRACK
+%right ASSIGN
+%left RELOP
+%left BINOP
+%token ID
+%token NUM
+%token STRING
+%token EOF1
 
 %%
 
-S	:	Exp
-		{
-			cout<<"The expression's value is "<<$1.value<<endl;
-		}
-	;
+Program		:	Funcs	
+			;
 
-Exp	:	Exp tkand Exp	
-		{
-			$$.value = $1.value && $3.value;
-		}
-	|	Exp tkor Exp
-		{
-			$$.value = $1.value || $3.value;
-		}
-	|	tklp { cout <<"In the mid-rule semantic action after (\n"; } Exp
-		{
-			/* THIS IS A MID-RULE SEMANTIC ACTION */
-			/* Inside this action, you have access to all the symbols
-			   that precede it, in this case $1, $2 (the marker), $3.
-			   You do NOT have access to symbols that follow the action
-			   ($5). Remember that the mid-rule action will be
-			   translated to a variable, so it counts as one $. */
-			 cout<<"Before the ). Expression value = "<<$3.value<<endl;
-			}
-			/* This is the rest of the production: */
- 			tkrp
-			/* And this is the end-rule semantic action: */
-		{
-			/* Note that what used to be $2 has become $3, because the
-			mid-rule semantic actions each count as a variable. */
-			$$ = $3;
-		}
-	|	tkconst
-		{
-			$$.value = $1;
-		}
-	;
+Funcs		:
+			|	FuncDecl Funcs
+			;
+
+FuncDecl	:	RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE
+			;
+
+RetType		:	Type
+			|	VOID
+			;
+
+Formals		:	
+			|	FormalsList
+			;
+
+FormalsList	:	FormalsDecl
+			|	FormalsDecl COMMA FormalsList
+			;
+
+FormalsDecl	:	Type ID
+			|	Type ID LBRACK NUM RBRACK
+			|	Type ID LBRACK NUM B RBRACK
+			;
+
+Statements	:	Statement
+			|	Statements Statement
+			;
+
+Statement	:	LBRACE Statements RBRACE
+			|	Type ID SC
+			|	Type ID ASSIGN Exp SC
+			|	Type ID LBRACK NUM RBRACK SC 
+			| 	Type ID LBRACK NUM B RBRACK SC 
+			| 	ID ASSIGN Exp SC 
+			|	ID LBRACK Exp RBRACK ASSIGN Exp SC
+			|	Call SC
+			|	RETURN SC
+			|	RETURN Exp SC
+			|	IF LPAREN Exp RPAREN Statement
+			|	%prec IF LPAREN Exp RPAREN Statement ELSE Statement
+			|	WHILE LPAREN Exp RPAREN Statement 
+			|	BREAK SC
+			;
+
+Call		:	ID LPAREN ExpList RPAREN
+			|	ID LPAREN RPAREN
+			;
+
+ExpList		:	Exp
+			|	Exp COMMA ExpList
+			;
+
+Type		:	INT
+			|	BYTE
+			|	BOOL
+			;
+
+Exp			:	LPAREN	Exp RPAREN
+			|	ID LBRACK Exp RBRACK
+			|	Exp BINOP Exp
+			|	ID
+			|	Call
+			|	NUM
+			|	NUM B
+			|	STRING
+			|	TRUE
+			|	FALSE
+			|	Exp	AND	Exp
+			|	Exp	OR Exp
+			|	Exp	RELOP Exp
+			|	NOT	Exp
+			;
+
 
 %%
 
