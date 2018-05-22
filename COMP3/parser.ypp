@@ -60,8 +60,8 @@ Program		: {
 				print_formals.push_back(print_formal);
 				printi_formals.push_back(printi_formal);
 
-				FuncTableEntry print_entry("print", RetType(OUR_VOID), print_formals);
-				FuncTableEntry printi_entry("printi", RetType(OUR_VOID), printi_formals);
+				FuncTableEntry print_entry(string("print"), RetType(OUR_VOID), print_formals);
+				FuncTableEntry printi_entry(string("printi"), RetType(OUR_VOID), printi_formals);
 
 			
 				f_table.push(print_entry);
@@ -85,20 +85,20 @@ RetType		:	Type
 			|	VOID
 			;
 
-Formals		:	  { $$ = new Formals(new FormalsList();); }
-				| FormalsList{ $$ = new Formals($1); }
+Formals		:	{ $$ = new Formals(FormalsList()); }
+			|	FormalsList { $$ = new Formals((dynamic_cast<FormalsList*>($1)));}
 			;
 
 FormalsList:	FormalsDecl { $$ = new FormalsList();
-							$$.addFormal($1); }
+							  dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1)); }
 			|	FormalsDecl  COMMA FormalsList { $$ = new FormalsList();
-												 $$.addFormal($1);
-												 $$.mergeList($3); }
+												 dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1));
+												 dynamic_cast<FormalsList*>($$)->mergeList(dynamic_cast<FormalsList*>($3)); }
 			;
 
-FormalsDecl:	Type ID { $$ = new FormalsDecl($1.type,$2.str_val);}
-			|	Type ID LBRACK NUM RBRACK { $$ = new FormalsDecl($1.type,$2.str_val,$4.int_val,true); }
-			|	Type ID LBRACK NUM B RBRACK{ $$ = new FormalsDecl($1.type,$2.str_val,$4.int_val,true,true); }
+FormalsDecl:	Type ID { $$ = new FormalsDecl($1->type,$2->str_val);}
+			|	Type ID LBRACK NUM RBRACK { $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true); }
+			|	Type ID LBRACK NUM B RBRACK{ $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true,true); }
 			;
 
 Statements	:	Statement

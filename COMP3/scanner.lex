@@ -55,6 +55,6 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 "0"|[1-9][0-9]*					return NUM;
 ([^\n\r\"\\]|\\[rnt"\\])+		return STRING;
 <<EOF>>							return EOF1;
-.								errorLex(yylineno); return 0;
+.								output::errorLex(yylineno); return 0;
 
 %%

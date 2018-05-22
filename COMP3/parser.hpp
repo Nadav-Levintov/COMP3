@@ -18,13 +18,13 @@ typedef enum type_e {
 
 /* YYSTYPE */
 
-struct Node {
+class Node {
+public:
 	Type_enum type;
 	int int_val;
 	string str_val;
-
-public:
-	Node(Type_enum t = OUR_VOID, int int_val = 0, string str = "");
+	Node(Type_enum t = OUR_VOID, int int_val = 0, string str = "") {}
+	virtual ~Node() {}
 };
 
 
@@ -79,6 +79,10 @@ class FormalsDecl : public Node {
 	bool isArrayByte;
 
 public:
+	bool operator<(const FormalsDecl& a)
+	{
+		return this->id < a.id;
+	}
 	FormalsDecl() {}
 	FormalsDecl(Type_enum t, string i, int size = 0, bool isArray = false, bool isArrayByte = false) :Node(t), id(i), arraySize(size), isArray(isArray), isArrayByte(isArrayByte) {}
 };
@@ -92,9 +96,17 @@ public:
 	{
 		frmalsList.push_back(f);
 	}
+	void addFormal(FormalsDecl* f)
+	{
+		frmalsList.push_back(*f);
+	}
 	void mergeList(FormalsList& fList)
 	{
 		frmalsList.merge(fList.frmalsList);
+	}
+	void mergeList(FormalsList *fList)
+	{
+		frmalsList.merge((*fList).frmalsList);
 	}
 };
 
@@ -102,6 +114,7 @@ class Formals : public Node {
 	FormalsList list;
 
 public:
+	Formals(FormalsList *list) :list(*list) {}
 	Formals(FormalsList list) :list(list) {}
 };
 
