@@ -109,7 +109,7 @@ class Statement : public Node {
 };
 class Call : public Node {};
 class ExpList : public Node {};
-class Type : public Node {};
+class TypeNonTerminal : public Node {};
 
 
 
@@ -125,22 +125,22 @@ class Table
 class VarTableEntry
 {
 	string name;
-	Type type;
+	TypeNonTerminal type;
 	int offset;
 
 public:
-	VarTableEntry(string name, Type type, int offset) :name(name), type(type), offset(offset) {	}
+	VarTableEntry(string name, TypeNonTerminal type, int offset) :name(name), type(type), offset(offset) {	}
 };
 
 class FuncTableEntry
 {
 	string name;
-	Type type;
-	Type retType;
+	TypeNonTerminal type;
+	RetType retType;
 	list<FormalsDecl> frmalsList;
 
 public:
-	FuncTableEntry(string name, Type type, int offset, list<FormalsDecl> frmalsList) :name(name), type(type), offset(offset), frmalsList(frmalsList) {	}
+	FuncTableEntry(string name, TypeNonTerminal type, RetType retType, list<FormalsDecl> frmalsList) :name(name), type(type), retType(retType), frmalsList(frmalsList) {	}
 };
 
 class VarTable : public Table
@@ -148,10 +148,7 @@ class VarTable : public Table
 	stack<VarTableEntry> rows;
 
 public:
-	VarTable()
-	{
-		rows = new stack<VarTableEntry>();
-	}
+	VarTable(){}
 };
 
 class FuncTable : public Table
@@ -159,10 +156,7 @@ class FuncTable : public Table
 	stack<FuncTableEntry> rows;
 
 public:
-	FuncTable()
-	{
-		rows = new stack<FuncTableEntry>();
-	}
+	FuncTable(){}
 };
 
 
