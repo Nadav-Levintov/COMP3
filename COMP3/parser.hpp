@@ -63,6 +63,9 @@ class Program : public Node {};
 class Funcs : public Node {};
 class RetType : public Node {
 
+public:
+	RetType(type_e t) :Node(type) {}
+
 };
 class FuncDecl : public Node {
 	string id;
@@ -135,12 +138,11 @@ public:
 class FuncTableEntry
 {
 	string name;
-	TypeNonTerminal type;
 	RetType retType;
 	list<FormalsDecl> frmalsList;
 
 public:
-	FuncTableEntry(string name, TypeNonTerminal type, RetType retType, list<FormalsDecl> frmalsList) :name(name), type(type), retType(retType), frmalsList(frmalsList) {	}
+	FuncTableEntry(string name, RetType retType, list<FormalsDecl> frmalsList) :name(name), retType(retType), frmalsList(frmalsList) {	}
 };
 
 class VarTable : public Table
@@ -157,6 +159,11 @@ class FuncTable : public Table
 
 public:
 	FuncTable(){}
+
+	void push(FuncTableEntry entry)
+	{
+		rows.push(entry);
+	}
 };
 
 

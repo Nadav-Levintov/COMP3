@@ -51,12 +51,21 @@
 %%
 
 Program		: {
-				tableStack = new stack<Table>();
-				offsetStack = new stack<int>();
-				FuncTable f_table = new FuncTable();
+				FuncTable f_table;
+				list<FormalsDecl> print_formals;
+				list<FormalsDecl> printi_formals;
+				FormalsDecl print_formal(OUR_STRING, "str");
+				FormalsDecl printi_formal(OUR_INT, "i");
+				
+				print_formals.push_back(print_formal);
+				printi_formals.push_back(printi_formal);
+
+				FuncTableEntry print_entry("print", RetType(OUR_VOID), print_formals);
+				FuncTableEntry printi_entry("printi", RetType(OUR_VOID), printi_formals);
+
 			
-				f_table.push(new FuncTableEntry("print", OUR_VOID, (new list<FormalsDecl>()).insert(new FormalsDecl(OUR_STRING, "str")));
-				f_table.push(new FuncTableEntry("printi", OUR_VOID, (new list<FormalsDecl>()).insert(new FormalsDecl(OUR_INT, "i"))));
+				f_table.push(print_entry);
+				f_table.push(printi_entry);
 			
 				tableStack.push(f_table);
 				offsetStack.push(0);
