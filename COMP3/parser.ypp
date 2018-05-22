@@ -76,13 +76,15 @@ Funcs		:
 			|	FuncDecl Funcs
 			;
 
-		FuncDecl:	RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE{
-				
+FuncDecl	:	RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {
+				$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2->str_val,dynamic_cast<Formals*>($4));
+				/* TODO: add to func table */
+				/*TODO: need to handle statments*/
 			}
 			;
 
-RetType		:	Type
-			|	VOID
+RetType		:	Type { $$ = new  RetType($1->type); }
+			|	VOID { $$ = new  RetType(OUR_VOID); }
 			;
 
 Formals		:	{ $$ = new Formals(FormalsList()); }

@@ -67,10 +67,6 @@ public:
 	RetType(type_e t) :Node(type) {}
 
 };
-class FuncDecl : public Node {
-	string id;
-	RetType retType;
-};
 
 class FormalsDecl : public Node {
 	string id;
@@ -126,6 +122,15 @@ class Statement : public Node {
 class Call : public Node {};
 class ExpList : public Node {};
 class TypeNonTerminal : public Node {};
+
+class FuncDecl : public Node {
+	string id;
+	RetType retType;
+	Formals formals;
+
+public:
+	FuncDecl(RetType *retType, string id, Formals *formals) :id(id), retType(*retType), formals(*formals) {}
+};
 
 
 
