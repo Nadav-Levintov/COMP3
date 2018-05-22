@@ -21,47 +21,119 @@ typedef enum type_e {
 class Node {
 public:
 	Type_enum type;
-	int int_val;
-	string str_val;
-	Node(Type_enum t = OUR_VOID, int int_val = 0, string str = "") {}
+	string id;
+	Node(Type_enum t = OUR_VOID, string id="") :type(t), id(id) {}
+
 	virtual ~Node() {}
 };
 
-
-class Num : public Node {
-
-	int value;
+class TypeNonTerminal : public Node {
+public:
+	TypeNonTerminal(Type_enum t) : Node(t) {}
 };
 
-class String : public Node {
-
-	string val;
+class TypeInt : public TypeNonTerminal {
+public:
+	TypeInt() :TypeNonTerminal(OUR_INT) {}
 };
 
-class Bool : public Node {
+class TypeBool : public TypeNonTerminal {
+public:
+	TypeBool() :TypeNonTerminal(OUR_BOOL) {}
+};
 
+class TypeByte : public TypeNonTerminal {
+public:
+	TypeByte() :TypeNonTerminal(OUR_BYTE) {}
+};
+
+class BoolExp : public Node {
 	bool val;
+public:
+	BoolExp(bool v) : Node(OUR_BOOL), val(val) {}
 };
 
-class Int : public Num {
-
+class NumExp : public Node {
+	int val;
+public:
+	NumExp(int v) : Node(OUR_INT), val(val) {}
 };
 
-class Byte : public Num {
-
+class ByteExp : public Node {
+	int val;
+public:
+	IntExp(int v) : Node(OUR_BYTE), val(val) {}
 };
 
-
-class Exp : public Node {
-	string str_val;
-	int int_val;
+class StringExp : public Node {
+	string val;
+public:
+	StringExp(string v) : Node(OUR_STRING), val(val) {}
 };
 
+class BinOp : public Node {
+	Node *first, *second;
+public:
+	BinOp(Node* _first, Node* _second) :Node(OUR_BYTE) {
+		first = _first;
+		second = _second;
+		if (_first->type == OUR_INT || _second->type == OUR_INT)
+			this.type = OUR_INT;
+	}
+};
 
+class RelOp : public Node {
+	Node *first, *second;
+public:
+	RelOp(Node* _first, Node* _second) :Node(OUR_BOOL) {
+		first = _first;
+		second = _second;
+	}
+};
 
-class Program : public Node {};
-class Funcs : public Node {};
-class RetType : public Node {
+class And : public Node {
+	Node *first, *second;
+public:
+	And(Node* _first, Node* _second) :Node(OUR_BOOL) {
+		first = _first;
+		second = _second;
+	}
+};
+
+class Or : public Node {
+	Node *first, *second;
+public:
+	Or(Node* _first, Node* _second) :Node(OUR_BOOL) {
+		first = _first;
+		second = _second;
+	}
+};
+
+class Not : public Node {
+	Node *first;
+public:
+	Not(Node* _first) :Node(OUR_BOOL) {
+		first = _first;
+	}
+};
+
+Class Num : public Node{
+public:
+	int val;
+	Num(Type_enum t, int val) :Node(t),val(val) {}
+}
+
+Class Array : public Node{
+public:
+	int size;
+	Array(Type_enum t, int size) :Node(t), size(size) {}
+}
+
+class ExpList : public Node {
+public:
+	list<Node*> lst;
+	ExpList() {	}
+};
 
 public:
 	RetType(type_e t) :Node(type) {}
@@ -69,18 +141,44 @@ public:
 };
 
 class FormalsDecl : public Node {
+public:
 	string id;
 	int arraySize;
 	bool isArray;
 	bool isArrayByte;
 
-public:
 	bool operator<(const FormalsDecl& a)
 	{
 		return this->id < a.id;
 	}
 	FormalsDecl() {}
+	FormalsDecl(FormalsDecl &f) {
+		this->type = f.type;
+		this->id = f.id;
+		this->arraySize = f.arraySize;
+		this->isArray = f.isArray;
+		this->isArrayByte = f.isArrayByte;
+	}
 	FormalsDecl(Type_enum t, string i, int size = 0, bool isArray = false, bool isArrayByte = false) :Node(t), id(i), arraySize(size), isArray(isArray), isArrayByte(isArrayByte) {}
+
+	bool operator==(FormalsDecl f)
+	{
+		if (this.id != f.id)
+			return false;
+		return true;
+	}
+
+	bool compareType(FormalsDecl f)
+	{
+		if (this->type != f.type)
+			return false;
+		if (this->isArray != f.isArray)
+			return false;
+		if (this->arraySize != f.size)
+			return false;
+
+		return true;
+	}
 };
 
 class FormalsList : public Node {
@@ -107,9 +205,8 @@ public:
 };
 
 class Formals : public Node {
-	FormalsList list;
-
 public:
+	FormalsList list;
 	Formals(FormalsList *list) :list(*list) {}
 	Formals(FormalsList list) :list(list) {}
 };
@@ -133,11 +230,101 @@ public:
 };
 
 
+/*
+class Exp : public Node {
+};
+
+class Op : public Node {
+
+};
+
+class Not : public Exp {
+	Exp* e;
+
+public:
+	Not(Exp *e) : e(e) {}
+};
+
+class OR : public Exp {
+	Exp *e1, *e2;
+
+public:
+	Or(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
+};
+
+class And : public Exp {
+	Exp *e1, *e2;
+
+public:
+	And(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
+};
+
+class Binop : public Exp {
+	Exp *e1, *e2;
+
+public:
+	Binop(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
+};
+
+class Relop : public Exp {
+	Exp *e1, *e2;
+
+public:
+	Relop(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
+};
+
+class Num : public Node {
+
+	int value;
+};
+
+class String : public Node {
+
+	string val;
+};
+
+class Bool : public Node {
+
+	bool val;
+};
+
+class Int : public Num {
+
+};
+
+class Byte : public Num {
+
+};
+
+
+
+
+
+
+class Program : public Node {};
+class Funcs : public Node {};
+class RetType : public Node {
+
+*/
+
+
 
 #define YYSTYPE Node*
 
 
 /* Symbol table */
+
+class VarType {
+public:
+	Type_enum type;
+	VarType(Type_enum type) :type(type) {}
+};
+
+class ArrayType : public VarType {
+public:
+	int size;
+	ArrayType(Type_enum type, int size) :VarType(type), size(size) {}
+};
 
 class Table
 {
@@ -145,42 +332,46 @@ class Table
 
 class VarTableEntry
 {
-	string name;
-	TypeNonTerminal type;
+	FormalsDecl frml;
 	int offset;
 
 public:
-	VarTableEntry(string name, TypeNonTerminal type, int offset) :name(name), type(type), offset(offset) {	}
+	VarTableEntry(FormalsDecl frml, int offset) : frml(frml), offset(offset) {	}
 };
 
 class FuncTableEntry
 {
-	string name;
-	RetType retType;
+	string id;
+	Type_enum retType;
 	list<FormalsDecl> frmalsList;
 
 public:
-	FuncTableEntry(string name, RetType retType, list<FormalsDecl> frmalsList) :name(name), retType(retType), frmalsList(frmalsList) {	}
+	FuncTableEntry(string id, Type_enum retType, list<VarType> frmalsList) :id(id), retType(retType), frmalsList(frmalsList) {	}
 };
 
-class VarTable : public Table
+class VarTable : public Table //Scope table
 {
-	stack<VarTableEntry> rows;
-
 public:
-	VarTable(){}
+	list<VarTableEntry> rows;
+	bool is_while;
+	VarTable(bool is_while = false) :is_while(is_while) {}
+
+	void push(VarTableEntry entry)
+	{
+		rows.push_back(entry);
+	}
 };
 
 class FuncTable : public Table
 {
-	stack<FuncTableEntry> rows;
+	list<FuncTableEntry> rows;
 
 public:
-	FuncTable(){}
+	FuncTable() {}
 
 	void push(FuncTableEntry entry)
 	{
-		rows.push(entry);
+		rows.push_back(entry);
 	}
 };
 

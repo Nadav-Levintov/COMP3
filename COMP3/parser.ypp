@@ -13,7 +13,9 @@
 	extern int yylex();
 	extern int yylineno;
 	int yyerror(char * message);
-	void open_new_scope();
+	void make_table();
+	bool check_var_exists(string id, Type_enum type);
+	void open_new_scope(bool is_break_allowed);
 	void close_scope();
 %}
 
@@ -50,57 +52,62 @@
 
 %%
 
-Program		: {
-				FuncTable f_table;
-				list<FormalsDecl> print_formals;
-				list<FormalsDecl> printi_formals;
-				FormalsDecl print_formal(OUR_STRING, "str");
-				FormalsDecl printi_formal(OUR_INT, "i");
-				
-				print_formals.push_back(print_formal);
-				printi_formals.push_back(printi_formal);
-
-				FuncTableEntry print_entry(string("print"), RetType(OUR_VOID), print_formals);
-				FuncTableEntry printi_entry(string("printi"), RetType(OUR_VOID), printi_formals);
-
-			
-				f_table.push(print_entry);
-				f_table.push(printi_entry);
-			
-				tableStack.push(f_table);
-				offsetStack.push(0);
-			}	Funcs
+Program		: { make_table(); }	Funcs {
+				tableStack.pop();
+				offsetStack.pop();
+				}
 			;
 
 Funcs		:
 			|	FuncDecl Funcs
 			;
 
-FuncDecl	:	RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {
-				$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2->str_val,dynamic_cast<Formals*>($4));
-				/* TODO: add to func table */
-				/*TODO: need to handle statments*/
-			}
+FuncDecl	:	RetType ID LPAREN Formals RPAREN{
+			//$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2->str_val,dynamic_cast<Formals*>($4));
+			FuncTable &f_table = tableStack.top();
+				Type_enum retType = $1->type;
+				list<FormalsDecl> frmlsList = dynamic_cast<Formals*>($4).list;
+				FuncTableEntry entry($2->str_val, retType, frmlsList);
+				f_table.push(entry);
+				open_new_scope();
+				int param_offset = -1;
+				for (FormalsDecl* frml : frmlsList)
+				{
+					if (frml->isArray)
+					{
+						VarTableEntry entry(*frml, param_offset);
+						param_offset-= frml->size;
+						tableStack.top().push(entry);
+					}
+					else {
+						VarTableEntry entry(*frml, param_offset);
+						param_offset--;
+						tableStack.top().push(entry);
+					}
+
+				}
+
+			} LBRACE Statements RBRACE {close_scope();}
 			;
 
-RetType		:	Type { $$ = new  RetType($1->type); }
-			|	VOID { $$ = new  RetType(OUR_VOID); }
+RetType		:	Type							{ $$ = $1; }
+			|	VOID							{ $$ = new  TypeNonTerminal(OUR_VOID); }
 			;
 
-Formals		:	{ $$ = new Formals(FormalsList()); }
-			|	FormalsList { $$ = new Formals((dynamic_cast<FormalsList*>($1)));}
+Formals		:									{ $$ = new Formals(FormalsList()); }
+			|	FormalsList						{ $$ = new Formals((dynamic_cast<FormalsList*>($1)));}
 			;
 
-FormalsList:	FormalsDecl { $$ = new FormalsList();
-							  dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1)); }
-			|	FormalsDecl  COMMA FormalsList { $$ = new FormalsList();
-												 dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1));
-												 dynamic_cast<FormalsList*>($$)->mergeList(dynamic_cast<FormalsList*>($3)); }
+FormalsList:	FormalsDecl						{ $$ = new FormalsList();
+												  dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1)); }
+			|	FormalsDecl  COMMA FormalsList	{ $$ = new FormalsList();
+													 dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1));
+													 dynamic_cast<FormalsList*>($$)->mergeList(dynamic_cast<FormalsList*>($3)); }
 			;
 
-FormalsDecl:	Type ID { $$ = new FormalsDecl($1->type,$2->str_val);}
-			|	Type ID LBRACK NUM RBRACK { $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true); }
-			|	Type ID LBRACK NUM B RBRACK{ $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true,true); }
+FormalsDecl:	Type ID							{ $$ = new FormalsDecl($1->type,$2->str_val);}
+			|	Type ID LBRACK NUM RBRACK		{ $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true); }
+			|	Type ID LBRACK NUM B RBRACK		{ $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true,true); }
 			;
 
 Statements	:	Statement
@@ -108,9 +115,29 @@ Statements	:	Statement
 			;
 
 Statement	:	LBRACE Statements RBRACE
-			|	Type ID SC
-			|	Type ID ASSIGN Exp SC
-			|	Type ID LBRACK NUM RBRACK SC 
+			|	Type ID SC					{	FormalsDecl frml($1.type,$2.id);
+												if(check_var_exists(frml))
+													output::errDef(yylineno,frml.id);
+												VarTableEntry entry(frml, offsetStack.top());
+												tableStack.top().push_back(entry);
+												offsetStack.top()++;
+											}
+			|	Type ID ASSIGN Exp SC		{	FormalsDecl frml($1.type,$2.id);
+												if (frml.type != $$.type)
+													output::errorMismatch(yylineno);
+												if (check_var_exists(frml))
+													output::errDef(yylineno,frml.id);
+												VarTableEntry entry(frml, offsetStack.top());
+												tableStack.top().push_back(entry);
+												offsetStack.top()++;
+												}
+			|	Type ID LBRACK NUM RBRACK SC	{	FormalsDecl frml($1.type,$2.id,dynamic_cast<NumExp*>($4)->val,true);
+													if (check_var_exists(frml))
+														output::errDef(yylineno,frml.id);
+													VarTableEntry entry(frml, offsetStack.top());
+													tableStack.top().push_back(entry);
+													offsetStack.top() += dynamic_cast<NumExp*>($4)->val;
+												}
 			| 	Type ID LBRACK NUM B RBRACK SC 
 			| 	ID ASSIGN Exp SC 
 			|	ID LBRACK Exp RBRACK ASSIGN Exp SC
@@ -123,33 +150,37 @@ Statement	:	LBRACE Statements RBRACE
 			|	BREAK SC
 			;
 
-Call		:	ID LPAREN ExpList RPAREN
-			|	ID LPAREN RPAREN
+Call		:	ID LPAREN ExpList RPAREN	{	/*TODO: not handeled yet */ }
+			|	ID LPAREN RPAREN			{	/*TODO: not handeled yet */ }
 			;
 
-ExpList		:	Exp
-			|	Exp COMMA ExpList
+ExpList		:	Exp							{	ExpList* l = new ExpList();
+												l.push_back($1);
+												$$ = l; }
+			|	Exp COMMA ExpList			{	ExpList* l = dynamic_cast<ExpList*>($3);
+												l.lst.push_front($1);
+												$$ = l; }
 			;
 
-Type		:	INT
-			|	BYTE
-			|	BOOL
+Type		:	INT							{	$$ = new TypeInt(); }
+			|	BYTE						{	$$ = new TypeByte; }
+			|	BOOL						{	$$ = new TypeBool; }
 			;
 
-Exp			:	LPAREN	Exp RPAREN
-			|	ID LBRACK Exp RBRACK
-			|	Exp BINOP Exp
-			|	ID
-			|	Call
-			|	NUM
-			|	NUM B
-			|	STRING
-			|	TRUE
-			|	FALSE
-			|	Exp	AND	Exp
-			|	Exp	OR Exp
-			|	Exp	RELOP Exp
-			|	NOT	Exp
+Exp			:	LPAREN	Exp RPAREN			{	$$ = $2; }
+			|	ID LBRACK Exp RBRACK		{	/*TODO: not handeled yet */ }
+			|	Exp BINOP Exp				{	$$ = new BinOp($1,$3);}
+			|	ID							{	/*TODO: not handeled yet */ }
+			|	Call						{	/*TODO: not handeled yet */ }
+			|	NUM							{	$$ = new Num(OUR_INT); }
+			|	NUM B						{	$$ = new Num(OUR_BYTE); }
+			|	STRING						{	$$ = new Node(OUR_STRING); }
+			|	TRUE						{	$$ = new Node(OUR_BOOL); }
+			|	FALSE						{	$$ = new Node(OUR_BOOL); }
+			|	Exp	AND	Exp					{	$$ = new AND($1,$3);}
+			|	Exp	OR Exp					{	$$ = new OR($1,$3);}
+			|	Exp	RELOP Exp				{	$$ = new RELOP($1,$3);}
+			|	NOT	Exp						{	$$ = new Not($2) }
 			;
 
 
@@ -166,11 +197,56 @@ int yyerror(char * message)
 	exit(0);
 }
 
-void open_new_scope()
+void open_new_scope(bool is_break_allowed=false)
 {
-
+	VarTable v;
+	tableStack.push(b);
+	offsetStack.push(offsetStack.top());
 }
 
 void close_scope() {
 
+	tableStack.pop();
+	offsetStack.pop();
+
+}
+
+void make_table()
+{
+	FuncTable f_table;
+	list<VarType> print_formals;
+	list<VarType> printi_formals;
+	VarType print_formal(OUR_STRING);
+	VarType printi_formal(OUR_INT);
+
+	print_formals.push_back(print_formal);
+	printi_formals.push_back(printi_formal);
+
+	FuncTableEntry print_entry("print", OUR_VOID, print_formals);
+	FuncTableEntry printi_entry("printi", OUR_VOID, printi_formals);
+
+	f_table.push(print_entry);
+	f_table.push(printi_entry);
+
+	tableStack.push(f_table);
+	offsetStack.push(0);
+}
+
+bool check_var_exists(FormalsDecl frml)
+{
+	if (tableStack.size() == 1)
+		return false;
+	
+	list<VarTableEntry> current_table_rows = (dynamic_cast<VarTable>(tableStack.top())).rows;
+
+	for (VarTableEntry entry : current_table_rows)
+	{
+		if (entry.frml == frml)
+			return true;
+	}
+	
+	VarTable temp = dynamic_cast<VarTable>(tableStack.pop());
+	bool res = check_var_exists(id, type);
+	tableStack.push(temp);
+	return res;
 }
