@@ -9,17 +9,21 @@
 	using namespace std;
 	using namespace output;
 
+#define BYTE_MAX_SIZE 255
+
 	stack<Table*> tableStack;
-	Table* funcTable;
+	FuncTable* funcTable;
 	stack<int> offsetStack;
 
 	extern int yylex();
 	extern int yylineno;
 	int yyerror(char * message);
 	void make_table();
+	bool is_break_scope();
 	bool check_var_exists_id(string id, Node* retNode);
 	void open_new_scope(bool is_break_allowed);
 	void open_new_function_scope(Type_enum retType);
+	bool check_func_exists(string& id, Node* expListNode, Type_enum *retType);
 	void close_scope();
 %}
 
@@ -75,7 +79,7 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 															int param_offset = -1;
 															for (list<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
 															{
-																Node* frml = *it;
+																Node* frml = (*it);
 																if (frml->isArray)
 																{
 																	VarTableEntry *entry = new VarTableEntry(frml, param_offset);
@@ -112,7 +116,7 @@ FormalsList:	FormalsDecl								{
 FormalsDecl:	Type ID									{ $$ = new Node($2->id, $1->type);}
 			|	Type ID LBRACK NUM RBRACK				{ $$ = new Node($2->id, $1->type, $4->intVal); }
 			|	Type ID LBRACK NUM B RBRACK				{ 
-															if($4->intVal > 255)
+															if($4->intVal > BYTE_MAX_SIZE)
 																errorByteTooLarge(yylineno,$4->id);
 															$$ = new Node($2->id, $1->type, $4->intVal); 
 														}
@@ -131,7 +135,7 @@ Statement	:	LBRACE Statements RBRACE
 															}
 															Node* newNode = new Node($2->id, $1->type);
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
-															tableStack.top()->push_back(entry);
+															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
 														}
 			|	Type ID ASSIGN Exp SC					{	
@@ -146,7 +150,7 @@ Statement	:	LBRACE Statements RBRACE
 															}
 															Node* newNode = new Node($2->id, $1->type);
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
-															tableStack.top()->push_back(entry);
+															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
 														}
 			|	Type ID LBRACK NUM RBRACK SC			{	
@@ -155,13 +159,13 @@ Statement	:	LBRACE Statements RBRACE
 															{
 																errorDef(yylineno, $1->id);
 															}
-															if ($4->intVal > 255)
+															if ($4->intVal > BYTE_MAX_SIZE)
 															{
-																errorInvalidArraySize(yylineno, $4->intVal);
+																errorInvalidArraySize(yylineno, $4->id);
 															}
 															Node* newNode = new Node($2->id, $1->type, $4->intVal);
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
-															tableStack.top()->push_back(entry);
+															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() += ($4)->intVal;
 														}
 			| Type ID LBRACK NUM B RBRACK SC			{	
@@ -170,13 +174,13 @@ Statement	:	LBRACE Statements RBRACE
 															{
 																errorDef(yylineno, $1->id);
 															}
-															if ($4->intVal > 255) 
+															if ($4->intVal > BYTE_MAX_SIZE) 
 															{
-																errorByteTooLarge(yylineno, $4->intVal);
+																errorByteTooLarge(yylineno, $4->id);
 															}
 															Node* newNode = new Node($2->id, $1->type, $4->intVal);
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
-															tableStack.top()->push_back(entry);
+															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() += ($4)->intVal;
 														}
 			| ID ASSIGN Exp SC							{
@@ -203,30 +207,30 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	Call SC
 			|	RETURN SC								{
-															Type_enum scopeRetType = funcTable.top()->get_scope_type();
+															Type_enum scopeRetType = funcTable->get_scope_type();
 															if (scopeRetType != OUR_VOID)
 																errorMismatch(yylineno);
 														}
 			|	RETURN Exp SC							{
-															Type_enum scopeRetType = funcTable.top()->get_scope_type();
+															Type_enum scopeRetType = funcTable->get_scope_type();
 															if (scopeRetType != $2->type)
 																errorMismatch(yylineno);
 														}
 			|	IF LPAREN Exp RPAREN					{
 															if (!$3->isBool())
 																errorMismatch(yylineno);
-															open_new_scope();
+																open_new_scope(false);
 														} Statement{
 															close_scope();
 														}
 			|	%prec IF LPAREN Exp RPAREN				{
 															if (!$3->isBool())
 																errorMismatch(yylineno);
-															open_new_scope();
+															open_new_scope(false);
 														} Statement {
 															close_scope();
 														} ELSE {
-															open_new_scope();
+															open_new_scope(false);
 														} Statement {
 															close_scope();
 														}
@@ -246,21 +250,21 @@ Statement	:	LBRACE Statements RBRACE
 Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 															if (check_func_exists($1->id,$3, retType))
 															{
-																$$.type = *retType;
+																$$->type = *retType;
 															}
 															else
 															{
-																errorUndefFunc(yylino,$1->id);
+																errorUndefFunc(yylineno,$1->id);
 															}
 														}
 			|	ID LPAREN RPAREN						{	Type_enum *retType;
 															if(check_func_exists($1->id,new Node(), retType))
 															{
-																$$.type = *retType;
+																$$->type = *retType;
 															}
 															else
 															{
-																errorUndefFunc(yylino, $1->id);
+																errorUndefFunc(yylineno, $1->id);
 															}
 														}
 			;
@@ -280,22 +284,22 @@ Type		:	INT										{	$$ = new Node(OUR_INT); }
 
 Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 			|	ID LBRACK Exp RBRACK					{
-															if (!($3)->isNUM())
+															if (!($3)->isNum())
 															{
 																errorMismatch(yylineno);
 															}
 															Node* node;
-															if (!check_var_exists_id_is_array($1->id, node))
+															if (!check_var_exists_id($1->id, node))
 															{
-																errorUndef(yylino, $1->id);
+																errorUndef(yylineno, $1->id);
 															}
 															$$ = node;
 														}
-			|	Exp BINOP Exp							{	if(!(&1->isNum() && $3->isNum()))
+			|	Exp BINOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
 																errorMismatch(yylineno);
 															}
-															if(&1->isByte() && $3->isByte())
+															if($1->isByte() && $3->isByte())
 															{
 																$$ = new Node(OUR_BYTE);
 															}
@@ -312,7 +316,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																}
 															else
 																{
-																	errorUndef(yylino, $1->id);
+																	errorUndef(yylineno, $1->id);
 																}
 														}
 			|	Call									{	$$ = $1; }
@@ -321,27 +325,27 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 														}
 			|	NUM B									{	
 															int val = $1->intVal;
-															if (val > 255)
+															if (val > BYTE_MAX_SIZE)
 															{
-																errorByteTooLarge(yylineno, val);
+																errorByteTooLarge(yylineno, $1->id);
 															}
 															$$ = new Node(OUR_BYTE,val); }
 			|	STRING									{	$$ = new Node(OUR_STRING); }
 			|	TRUE									{	$$ = new Node(OUR_BOOL); }
 			|	FALSE									{	$$ = new Node(OUR_BOOL); }
-			|	Exp	AND	Exp								{	if(!(&1->isBool() && $3->isBool()))
+			|	Exp	AND	Exp								{	if(!($1->isBool() && $3->isBool()))
 															{
 																errorMismatch(yylineno);
 															}
 															$$ = new Node(OUR_BOOL);
 														}
-			|	Exp	OR Exp								{	if(!(&1->isBool() && $3->isBool()))
+			|	Exp	OR Exp								{	if(!($1->isBool() && $3->isBool()))
 															{
 																errorMismatch(yylineno);
 															}
 															$$ = new Node(OUR_BOOL);
 														}
-			|	Exp	RELOP Exp							{	if(!(&1->isNum() && $3->isNum()))
+			|	Exp	RELOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
 																errorMismatch(yylineno);
 															}
@@ -371,7 +375,7 @@ int yyerror(char * message)
 void open_new_scope(bool is_break_allowed=false)
 {
 	bool is_current_while = is_break_scope();
-	Type_enum retType = funcTable.top()->get_scope_type();
+	Type_enum retType = tableStack.top()->get_scope_type();
 	VarTable *v = new VarTable(is_break_allowed || is_current_while, retType);
 	tableStack.push(v);
 	offsetStack.push(offsetStack.top());
@@ -393,23 +397,22 @@ void close_scope() {
 
 void make_table()
 {
-	FuncTable f_table;
-	list<VarType> print_formals;
-	list<VarType> printi_formals;
-	VarType print_formal(OUR_STRING);
-	VarType printi_formal(OUR_INT);
+	funcTable = new FuncTable();
+	list<Node*> print_formals;
+	list<Node*> printi_formals;
+	Node* print_formal = new Node(OUR_STRING);
+	Node* printi_formal= new Node(OUR_INT);
 
 	print_formals.push_back(print_formal);
 	printi_formals.push_back(printi_formal);
 
-	FuncTableEntry print_entry("print", OUR_VOID, print_formals);
-	FuncTableEntry printi_entry("printi", OUR_VOID, printi_formals);
+	FuncTableEntry* print_entry = new FuncTableEntry("print", OUR_VOID, print_formals);
+	FuncTableEntry* printi_entry= new FuncTableEntry("printi", OUR_VOID, printi_formals);
 
-	f_table.push(print_entry);
-	f_table.push(printi_entry);
+	funcTable->push(print_entry);
+	funcTable->push(printi_entry);
 
-	tableStack.push(f_table);
-	funcTable = &tableStack.top();
+	tableStack.push(funcTable);
 
 	offsetStack.push(0);
 }
@@ -420,18 +423,18 @@ bool check_var_exists_id(string id, Node* retNode)
 	if (tableStack.size() == 1)
 		return false;
 
-	list<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable>(tableStack.top()))->rows;
-
-	for (VarTableEntry *entry : current_table_rows)
+	list<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
+	for(list<VarTableEntry*>::iterator it = current_table_rows.begin(); it!= current_table_rows.end();it++)
 	{
-		if (entry->node->id == id)
+		if ((*it)->node->id == id)
 		{
-			retNode = entry->node;
+			retNode = (*it)->node;
 			return true;
 		}
 	}
 
-	VarTable temp = dynamic_cast<VarTable>(tableStack.pop());
+	VarTable* temp = dynamic_cast<VarTable*>(tableStack.top());
+	tableStack.pop();
 	bool res = check_var_exists_id(id, retNode);
 	tableStack.push(temp);
 	return res;
@@ -440,11 +443,13 @@ bool check_var_exists_id(string id, Node* retNode)
 bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
 {
 	int i = 0;
-	for (FuncTableEntry entry : funcTable)
+
+	for (list<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
 	{
-		if (entry->id == id && entry->nodeList.size() == expListNode->expList.size())
+		if ((*it)->id == id && (*it)->nodeList.size() == expListNode->expList.size())
 		{
-			for (Node* var : expListNode->expList)
+			for( list<Node*>::iterator nodeIt = expListNode->expList.begin(); nodeIt!= expListNode->expList.end();it++)
+			for (Node* var : expListNode->expList)//This for is not correct we need to iterate over another list
 			{
 				if (!var->compareType(expListNode->expList.get(i)))
 				{
@@ -452,7 +457,7 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
 				}
 				i++;
 			}
-			*retType = entry.retType;
+			*retType = (*it)->retType;
 			return true;
 		}
 		
@@ -463,9 +468,9 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
 bool check_func_exists_name(string& id)
 {
 	int i = 0;
-	for (FuncTableEntry entry : funcTable)
+	for (list<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
 	{
-		if (entry.id == id)
+		if ((*it)->id == id)
 		{
 			return true;
 		}
@@ -476,5 +481,5 @@ bool check_func_exists_name(string& id)
 
 bool is_break_scope()
 {
-	return funcTable.top()->is_while;
+	return tableStack.top()->is_while;
 }

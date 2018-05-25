@@ -112,6 +112,11 @@ public:
 		return this->type == OUR_BOOL && !this->isArray;
 	}
 
+	bool isByte()
+	{
+		return this->type == OUR_BYTE && !this->isArray;
+	}
+
 	bool isNum()
 	{
 		return (this->type == OUR_INT || this->type == OUR_BYTE) && !this->isArray;
@@ -374,26 +379,25 @@ public:
 	{
 		return this->retType;
 	}
-	virtual void push(TableEntry entry) = 0;
+	
 	virtual ~Table() {}
 };
 
 class VarTableEntry : public TableEntry
 {
+public:
 	Node *node;
 	int offset;
-
-public:
 	VarTableEntry(Node *node, int offset) : node(node), offset(offset) {	}
 };
 
 class FuncTableEntry : public TableEntry
 {
+public:
 	string id;
 	Type_enum retType;
 	list<Node*> nodeList;
 
-public:
 	FuncTableEntry(string id, Type_enum retType, list<Node*> nodeList) :id(id), retType(retType), nodeList(nodeList) {	}
 };
 
@@ -401,7 +405,7 @@ class VarTable : public Table //Scope table
 {
 public:
 	list<VarTableEntry*> rows;
-	VarTable(bool is_while = false) :Table(is_while) {}
+	VarTable(bool is_while,Type_enum type) :Table(is_while, type) {}
 
 	virtual void push(TableEntry *entry)
 	{
@@ -411,9 +415,8 @@ public:
 
 class FuncTable : public Table
 {
-	list<FuncTableEntry*> rows;
-
 public:
+	list<FuncTableEntry*> rows;
 	FuncTable(bool is_while = false) :Table(is_while) {}
 
 	virtual void push(TableEntry *entry)
