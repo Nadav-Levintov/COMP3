@@ -2,7 +2,11 @@
 /* Declarations section */
 #include <stdio.h>
 #include "output.hpp"
+#include "parser.hpp"
 #include "parser.tab.hpp"
+
+	using namespace output;
+	using namespace std;
 
 %}
 
@@ -16,10 +20,6 @@ whitespace 		([\t\n ])
 cr				(\x0d)
 lf				(\x0a)
 linebreak		(\x0d\x0a|\x0d|\x0a)
-
-
-%x str1
-%x str2
 
 %%
 
@@ -52,12 +52,12 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 "=="|"!="|"<"|">"|"<="|">="		return RELOP;
 "+"|"-"|"*"|"/"					return BINOP;
 {letter}{digitletter}*			{
-								yylval = new Node(yytext);
-								return ID;
+									yylval = new Node(yytext);
+									return ID;
 								}
 "0"|[1-9][0-9]*					{
-								yylval = new Node(atoi(yytext),yytext);
-								return NUM;
+									yylval = new Node(atoi(yytext),yytext);
+									return NUM;
 								}
 ([^\n\r\"\\]|\\[rnt"\\])+		return STRING;
 <<EOF>>							return EOF1;

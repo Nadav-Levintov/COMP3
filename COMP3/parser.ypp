@@ -77,7 +77,7 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 															f_table->push(entry);
 															open_new_scope(false);
 															int param_offset = -1;
-															for (list<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
+															for (vector<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
 															{
 																Node* frml = (*it);
 																if (frml->isArray)
@@ -110,7 +110,7 @@ FormalsList:	FormalsDecl								{
 															$$->frmlList.push_back($1); }
 			|	FormalsDecl  COMMA FormalsList			{	
 															$$ = $3;
-															$$->frmlList.push_front($1); }
+															$$->frmlList.insert($$->frmlList.begin(),$1); }
 			;
 
 FormalsDecl:	Type ID									{ $$ = new Node($2->id, $1->type);}
@@ -273,7 +273,7 @@ ExpList		:	Exp										{	Node *node = new Node();
 															node->expList.push_back($1);
 															$$ = node; }
 			|	Exp COMMA ExpList						{	Node *l = ($3);
-															l->expList.push_front($1);
+															l->expList.insert(l->expList.begin(),$1);
 															$$ = l; }
 			;
 
@@ -398,8 +398,8 @@ void close_scope() {
 void make_table()
 {
 	funcTable = new FuncTable();
-	list<Node*> print_formals;
-	list<Node*> printi_formals;
+	vector<Node*> print_formals;
+	vector<Node*> printi_formals;
 	Node* print_formal = new Node(OUR_STRING);
 	Node* printi_formal= new Node(OUR_INT);
 
@@ -423,8 +423,8 @@ bool check_var_exists_id(string id, Node* retNode)
 	if (tableStack.size() == 1)
 		return false;
 
-	list<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
-	for(list<VarTableEntry*>::iterator it = current_table_rows.begin(); it!= current_table_rows.end();it++)
+	vector<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
+	for(vector<VarTableEntry*>::iterator it = current_table_rows.begin(); it!= current_table_rows.end();it++)
 	{
 		if ((*it)->node->id == id)
 		{
@@ -444,14 +444,13 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
 {
 	int i = 0;
 
-	for (list<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
+	for (vector<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
 	{
 		if ((*it)->id == id && (*it)->nodeList.size() == expListNode->expList.size())
 		{
-			for( list<Node*>::iterator nodeIt = expListNode->expList.begin(); nodeIt!= expListNode->expList.end();it++)
-			for (Node* var : expListNode->expList)//This for is not correct we need to iterate over another list
+			for( vector<Node*>::iterator nodeIt = (*it)->nodeList.begin(); nodeIt!= (*it)->nodeList.end();it++)
 			{
-				if (!var->compareType(expListNode->expList.get(i)))
+				if (!(*nodeIt)->compareType(expListNode->expList[i]))
 				{
 					return false;
 				}
@@ -468,7 +467,7 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
 bool check_func_exists_name(string& id)
 {
 	int i = 0;
-	for (list<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
+	for (vector<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
 	{
 		if ((*it)->id == id)
 		{

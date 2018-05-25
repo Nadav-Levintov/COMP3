@@ -2,7 +2,7 @@
 #define PARSER_H
 
 #include <string>
-#include <list>
+#include <vector>
 #include <stack>
 #include <climits>
 
@@ -28,8 +28,8 @@ public:
 	int arraySize;
 	bool isArray;
 
-	list<Node*> expList;
-	list<Node*> frmlList;
+	vector<Node*> expList;
+	vector<Node*> frmlList;
 
 	Node() {}
 	Node(string id, Type_enum type) {
@@ -236,8 +236,8 @@ public:
 
 class ExpList : public Node {
 public:
-	list<Node*> lst;
-	ExpList(list<Node*> lst):lst(lst) {	}
+	vector<Node*> lst;
+	ExpList(vector<Node*> lst):lst(lst) {	}
 	ExpList() {	}
 	bool operator== (ExpList l)
 	{
@@ -299,7 +299,7 @@ public:
 };
 
 class FormalsList : public Node {
-	list<FormalsDecl> frmalsList;
+	vector<FormalsDecl> frmalsList;
 
 public:
 
@@ -323,9 +323,9 @@ public:
 
 class Formals : public Node {
 public:
-	FormalsList list;
-	Formals(FormalsList *list) :list(*list) {}
-	Formals(FormalsList list) :list(list) {}
+	FormalsList vector;
+	Formals(FormalsList *vector) :vector(*vector) {}
+	Formals(FormalsList vector) :vector(vector) {}
 };
 
 class Statements : public Node {};
@@ -396,15 +396,15 @@ class FuncTableEntry : public TableEntry
 public:
 	string id;
 	Type_enum retType;
-	list<Node*> nodeList;
+	vector<Node*> nodeList;
 
-	FuncTableEntry(string id, Type_enum retType, list<Node*> nodeList) :id(id), retType(retType), nodeList(nodeList) {	}
+	FuncTableEntry(string id, Type_enum retType, vector<Node*> nodeList) :id(id), retType(retType), nodeList(nodeList) {	}
 };
 
 class VarTable : public Table //Scope table
 {
 public:
-	list<VarTableEntry*> rows;
+	vector<VarTableEntry*> rows;
 	VarTable(bool is_while,Type_enum type) :Table(is_while, type) {}
 
 	virtual void push(TableEntry *entry)
@@ -416,7 +416,7 @@ public:
 class FuncTable : public Table
 {
 public:
-	list<FuncTableEntry*> rows;
+	vector<FuncTableEntry*> rows;
 	FuncTable(bool is_while = false) :Table(is_while) {}
 
 	virtual void push(TableEntry *entry)
