@@ -59,7 +59,7 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 									yylval = new Node(atoi(yytext),yytext);
 									return NUM;
 								}
-([^\n\r\"\\]|\\[rnt"\\])+		return STRING;
+"( [^\n\r\"\\]|\\[rnt\"\\])+"		return STRING;
 <<EOF>>							return EOF1;
 .								output::errorLex(yylineno); return 0;
 

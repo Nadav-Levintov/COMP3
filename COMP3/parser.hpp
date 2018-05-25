@@ -80,6 +80,13 @@ public:
 		this->arraySize = 0;
 		this->isArray = false;
 	}
+	Node(Node *node) {
+		this->type = node->type;
+		this->intVal = node->intVal;
+		this->id = node->id;
+		this->arraySize = node->arraySize;
+		this->isArray = node->isArray;
+	}
 
 	bool operator<(const Node& a)
 	{
@@ -407,9 +414,9 @@ public:
 	vector<VarTableEntry*> rows;
 	VarTable(bool is_while,Type_enum type) :Table(is_while, type) {}
 
-	virtual void push(TableEntry *entry)
+	void push(VarTableEntry *entry)
 	{
-		rows.push_back(dynamic_cast<VarTableEntry*>(entry));
+		rows.push_back(entry);
 	}
 };
 
@@ -419,9 +426,9 @@ public:
 	vector<FuncTableEntry*> rows;
 	FuncTable(bool is_while = false) :Table(is_while) {}
 
-	virtual void push(TableEntry *entry)
+	void push(FuncTableEntry *entry)
 	{
-		rows.push_back(dynamic_cast<FuncTableEntry*>(entry));
+		rows.push_back(entry);
 	}
 };
 

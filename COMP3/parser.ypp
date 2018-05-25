@@ -10,6 +10,7 @@
 	using namespace output;
 
 #define BYTE_MAX_SIZE 255
+#define YYERROR_VERBOSE 1
 
 	stack<Table*> tableStack;
 	FuncTable* funcTable;
@@ -17,10 +18,11 @@
 
 	extern int yylex();
 	extern int yylineno;
-	int yyerror(char * message);
+	int yyerror(const char * message);
+
 	void make_table();
 	bool is_break_scope();
-	bool check_var_exists_id(string id, Node* retNode);
+	bool check_var_exists_id(string id, Node** retNode);
 	void open_new_scope(bool is_break_allowed);
 	void open_new_function_scope(Type_enum retType);
 	bool check_func_exists(string& id, Node* expListNode, Type_enum *retType);
@@ -73,23 +75,24 @@ Funcs		:
 FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 															FuncTable *f_table = dynamic_cast<FuncTable*>(tableStack.top());
 															Type_enum retType = $1->type;
-															FuncTableEntry *entry = new FuncTableEntry($2->id, retType, $4->frmlList);
-															f_table->push(entry);
+															FuncTableEntry *func_entry = new FuncTableEntry($2->id, retType, $4->frmlList);
+															f_table->push(func_entry);
 															open_new_scope(false);
 															int param_offset = -1;
 															for (vector<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
 															{
+																VarTableEntry *var_entry;
 																Node* frml = (*it);
 																if (frml->isArray)
 																{
-																	VarTableEntry *entry = new VarTableEntry(frml, param_offset);
+																	var_entry = new VarTableEntry(frml, param_offset);
 																	param_offset-= frml->arraySize;
 																}
 																else {
-																	VarTableEntry entry(frml, param_offset);
+																	var_entry = new VarTableEntry(frml, param_offset);
 																	param_offset--;
 																}
-																dynamic_cast<VarTable*>(tableStack.top())->push(entry);
+																dynamic_cast<VarTable*>(tableStack.top())->push(var_entry);
 
 															}
 														} LBRACE Statements RBRACE {
@@ -129,7 +132,7 @@ Statements	:	Statement
 Statement	:	LBRACE Statements RBRACE		
 			|	Type ID SC								{	
 															Node* node;
-															if (!check_var_exists_id($1->id, node))
+															if (!check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
 															}
@@ -140,7 +143,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	Type ID ASSIGN Exp SC					{	
 															Node* node;
-															if (!check_var_exists_id($1->id, node))
+															if (!check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
 															}
@@ -155,7 +158,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	Type ID LBRACK NUM RBRACK SC			{	
 															Node* node;
-															if (check_var_exists_id($1->id, node))
+															if (check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
 															}
@@ -170,7 +173,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			| Type ID LBRACK NUM B RBRACK SC			{	
 															Node* node;
-															if (check_var_exists_id($1->id, node))
+															if (check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
 															}
@@ -185,7 +188,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			| ID ASSIGN Exp SC							{
 															Node* node;
-															if (!check_var_exists_id($1->id, node))
+															if (!check_var_exists_id($1->id, &node))
 															{
 																errorUndef(yylineno, $1->id);
 															}
@@ -196,7 +199,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	ID LBRACK Exp RBRACK ASSIGN Exp SC		{
 															Node* node;
-															if (!check_var_exists_id($1->id, node))
+															if (!check_var_exists_id($1->id, &node))
 															{
 																errorUndef(yylineno, $1->id);
 															}
@@ -289,7 +292,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorMismatch(yylineno);
 															}
 															Node* node;
-															if (!check_var_exists_id($1->id, node))
+															if (!check_var_exists_id($1->id, &node))
 															{
 																errorUndef(yylineno, $1->id);
 															}
@@ -310,7 +313,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 														}
 			|	ID										{	
 															Node* node;
-															if (check_var_exists_id($1->id,node))
+															if (check_var_exists_id($1->id, &node))
 																{
 																	$$ = node;
 																}
@@ -366,9 +369,9 @@ int main()
 	yyparse();
 }
 
-int yyerror(char * message)
+int yyerror(const char * message)
 {
-	cout<<"Parse error: "<<message<<endl;
+	cout<<"Parse error: "<<message <<endl;
 	exit(0);
 }
 
@@ -418,17 +421,18 @@ void make_table()
 }
 
 
-bool check_var_exists_id(string id, Node* retNode)
+bool check_var_exists_id(string id, Node** retNode)
 {
-	if (tableStack.size() == 1)
+	if (tableStack.size() <= 1)
 		return false;
-
+	
 	vector<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
-	for(vector<VarTableEntry*>::iterator it = current_table_rows.begin(); it!= current_table_rows.end();it++)
+	//for(vector<VarTableEntry*>::iterator it = current_table_rows.begin(); it != current_table_rows.end();it++)
+	for (int i=0; i< current_table_rows.size() ; i++)
 	{
-		if ((*it)->node->id == id)
+		if (current_table_rows[i]->node->id == id)
 		{
-			retNode = (*it)->node;
+			retNode = &(current_table_rows[i]->node);
 			return true;
 		}
 	}
