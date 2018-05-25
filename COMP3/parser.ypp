@@ -1,21 +1,25 @@
 %{
 	#include <iostream>
+	#include <string>
 	#include <stdlib.h>
 	#include <stack>
 	#include "output.hpp"
 	#include "parser.hpp"
 
 	using namespace std;
+	using namespace output;
 
-	stack<Table> tableStack;
+	stack<Table*> tableStack;
+	Table* funcTable;
 	stack<int> offsetStack;
 
 	extern int yylex();
 	extern int yylineno;
 	int yyerror(char * message);
 	void make_table();
-	bool check_var_exists(string id, Type_enum type);
+	bool check_var_exists_id(string id, Node* retNode);
 	void open_new_scope(bool is_break_allowed);
+	void open_new_function_scope(Type_enum retType);
 	void close_scope();
 %}
 
@@ -52,135 +56,302 @@
 
 %%
 
-Program		: { make_table(); }	Funcs {
-				tableStack.pop();
-				offsetStack.pop();
-				}
+Program		: { make_table(); }	Funcs					{
+															tableStack.pop();
+															offsetStack.pop();
+														}
 			;
 
 Funcs		:
 			|	FuncDecl Funcs
 			;
 
-FuncDecl	:	RetType ID LPAREN Formals RPAREN{
-			//$$ = new FuncDecl(dynamic_cast<RetType*>($1),$2->str_val,dynamic_cast<Formals*>($4));
-			FuncTable &f_table = tableStack.top();
-				Type_enum retType = $1->type;
-				list<FormalsDecl> frmlsList = dynamic_cast<Formals*>($4).list;
-				FuncTableEntry entry($2->str_val, retType, frmlsList);
-				f_table.push(entry);
-				open_new_scope();
-				int param_offset = -1;
-				for (FormalsDecl* frml : frmlsList)
-				{
-					if (frml->isArray)
-					{
-						VarTableEntry entry(*frml, param_offset);
-						param_offset-= frml->size;
-						tableStack.top().push(entry);
-					}
-					else {
-						VarTableEntry entry(*frml, param_offset);
-						param_offset--;
-						tableStack.top().push(entry);
-					}
+FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
+															FuncTable *f_table = dynamic_cast<FuncTable*>(tableStack.top());
+															Type_enum retType = $1->type;
+															FuncTableEntry *entry = new FuncTableEntry($2->id, retType, $4->frmlList);
+															f_table->push(entry);
+															open_new_scope(false);
+															int param_offset = -1;
+															for (list<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
+															{
+																Node* frml = *it;
+																if (frml->isArray)
+																{
+																	VarTableEntry *entry = new VarTableEntry(frml, param_offset);
+																	param_offset-= frml->arraySize;
+																}
+																else {
+																	VarTableEntry entry(frml, param_offset);
+																	param_offset--;
+																}
+																dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 
-				}
-
-			} LBRACE Statements RBRACE {close_scope();}
+															}
+														} LBRACE Statements RBRACE {
+															close_scope();
+														}
 			;
 
-RetType		:	Type							{ $$ = $1; }
-			|	VOID							{ $$ = new  TypeNonTerminal(OUR_VOID); }
+RetType		:	Type									{ $$ = $1; }
+			|	VOID									{ $$ = new  Node(OUR_VOID); }
 			;
 
-Formals		:									{ $$ = new Formals(FormalsList()); }
-			|	FormalsList						{ $$ = new Formals((dynamic_cast<FormalsList*>($1)));}
+Formals		:											{ $$ = new Node(); }
+			|	FormalsList								{ $$ = $1;}
 			;
 
-FormalsList:	FormalsDecl						{ $$ = new FormalsList();
-												  dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1)); }
-			|	FormalsDecl  COMMA FormalsList	{ $$ = new FormalsList();
-													 dynamic_cast<FormalsList*>($$)->addFormal(dynamic_cast<FormalsDecl*>($1));
-													 dynamic_cast<FormalsList*>($$)->mergeList(dynamic_cast<FormalsList*>($3)); }
+FormalsList:	FormalsDecl								{ 
+															$$ = new Node();
+															$$->frmlList.push_back($1); }
+			|	FormalsDecl  COMMA FormalsList			{	
+															$$ = $3;
+															$$->frmlList.push_front($1); }
 			;
 
-FormalsDecl:	Type ID							{ $$ = new FormalsDecl($1->type,$2->str_val);}
-			|	Type ID LBRACK NUM RBRACK		{ $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true); }
-			|	Type ID LBRACK NUM B RBRACK		{ $$ = new FormalsDecl($1->type,$2->str_val,$4->int_val,true,true); }
+FormalsDecl:	Type ID									{ $$ = new Node($2->id, $1->type);}
+			|	Type ID LBRACK NUM RBRACK				{ $$ = new Node($2->id, $1->type, $4->intVal); }
+			|	Type ID LBRACK NUM B RBRACK				{ 
+															if($4->intVal > 255)
+																errorByteTooLarge(yylineno,$4->id);
+															$$ = new Node($2->id, $1->type, $4->intVal); 
+														}
 			;
 
 Statements	:	Statement
 			|	Statements Statement
 			;
 
-Statement	:	LBRACE Statements RBRACE
-			|	Type ID SC					{	FormalsDecl frml($1.type,$2.id);
-												if(check_var_exists(frml))
-													output::errDef(yylineno,frml.id);
-												VarTableEntry entry(frml, offsetStack.top());
-												tableStack.top().push_back(entry);
-												offsetStack.top()++;
-											}
-			|	Type ID ASSIGN Exp SC		{	FormalsDecl frml($1.type,$2.id);
-												if (frml.type != $$.type)
-													output::errorMismatch(yylineno);
-												if (check_var_exists(frml))
-													output::errDef(yylineno,frml.id);
-												VarTableEntry entry(frml, offsetStack.top());
-												tableStack.top().push_back(entry);
-												offsetStack.top()++;
-												}
-			|	Type ID LBRACK NUM RBRACK SC	{	FormalsDecl frml($1.type,$2.id,dynamic_cast<NumExp*>($4)->val,true);
-													if (check_var_exists(frml))
-														output::errDef(yylineno,frml.id);
-													VarTableEntry entry(frml, offsetStack.top());
-													tableStack.top().push_back(entry);
-													offsetStack.top() += dynamic_cast<NumExp*>($4)->val;
-												}
-			| 	Type ID LBRACK NUM B RBRACK SC 
-			| 	ID ASSIGN Exp SC 
-			|	ID LBRACK Exp RBRACK ASSIGN Exp SC
+Statement	:	LBRACE Statements RBRACE		
+			|	Type ID SC								{	
+															Node* node;
+															if (!check_var_exists_id($1->id, node))
+															{
+																errorDef(yylineno, $1->id);
+															}
+															Node* newNode = new Node($2->id, $1->type);
+															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
+															tableStack.top()->push_back(entry);
+															offsetStack.top() ++;
+														}
+			|	Type ID ASSIGN Exp SC					{	
+															Node* node;
+															if (!check_var_exists_id($1->id, node))
+															{
+																errorDef(yylineno, $1->id);
+															}
+															if (!$4->compareType($1))
+															{
+																errorMismatch(yylineno);
+															}
+															Node* newNode = new Node($2->id, $1->type);
+															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
+															tableStack.top()->push_back(entry);
+															offsetStack.top() ++;
+														}
+			|	Type ID LBRACK NUM RBRACK SC			{	
+															Node* node;
+															if (check_var_exists_id($1->id, node))
+															{
+																errorDef(yylineno, $1->id);
+															}
+															if ($4->intVal > 255)
+															{
+																errorInvalidArraySize(yylineno, $4->intVal);
+															}
+															Node* newNode = new Node($2->id, $1->type, $4->intVal);
+															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
+															tableStack.top()->push_back(entry);
+															offsetStack.top() += ($4)->intVal;
+														}
+			| Type ID LBRACK NUM B RBRACK SC			{	
+															Node* node;
+															if (check_var_exists_id($1->id, node))
+															{
+																errorDef(yylineno, $1->id);
+															}
+															if ($4->intVal > 255) 
+															{
+																errorByteTooLarge(yylineno, $4->intVal);
+															}
+															Node* newNode = new Node($2->id, $1->type, $4->intVal);
+															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
+															tableStack.top()->push_back(entry);
+															offsetStack.top() += ($4)->intVal;
+														}
+			| ID ASSIGN Exp SC							{
+															Node* node;
+															if (!check_var_exists_id($1->id, node))
+															{
+																errorUndef(yylineno, $1->id);
+															}
+															if (!node->compareType($3)) 
+															{
+																errorMismatch(yylineno);
+															}
+														}
+			|	ID LBRACK Exp RBRACK ASSIGN Exp SC		{
+															Node* node;
+															if (!check_var_exists_id($1->id, node))
+															{
+																errorUndef(yylineno, $1->id);
+															}
+															if (node->type != $6->type || !$3->isNum() || !node->isArray)
+															{
+																errorMismatch(yylineno);
+															}
+														}
 			|	Call SC
-			|	RETURN SC
-			|	RETURN Exp SC
-			|	IF LPAREN Exp RPAREN Statement
-			|	%prec IF LPAREN Exp RPAREN Statement ELSE Statement
-			|	WHILE LPAREN Exp RPAREN Statement 
-			|	BREAK SC
+			|	RETURN SC								{
+															Type_enum scopeRetType = funcTable.top()->get_scope_type();
+															if (scopeRetType != OUR_VOID)
+																errorMismatch(yylineno);
+														}
+			|	RETURN Exp SC							{
+															Type_enum scopeRetType = funcTable.top()->get_scope_type();
+															if (scopeRetType != $2->type)
+																errorMismatch(yylineno);
+														}
+			|	IF LPAREN Exp RPAREN					{
+															if (!$3->isBool())
+																errorMismatch(yylineno);
+															open_new_scope();
+														} Statement{
+															close_scope();
+														}
+			|	%prec IF LPAREN Exp RPAREN				{
+															if (!$3->isBool())
+																errorMismatch(yylineno);
+															open_new_scope();
+														} Statement {
+															close_scope();
+														} ELSE {
+															open_new_scope();
+														} Statement {
+															close_scope();
+														}
+			|	WHILE LPAREN Exp RPAREN					{
+															if(!$3->isBool())
+																errorMismatch(yylineno);
+															open_new_scope(true);
+														} Statement	{
+																close_scope();
+														}
+			|	BREAK SC									{ 
+																if(!is_break_scope() )
+																	errorUnexpectedBreak(yylineno);
+															}
 			;
 
-Call		:	ID LPAREN ExpList RPAREN	{	/*TODO: not handeled yet */ }
-			|	ID LPAREN RPAREN			{	/*TODO: not handeled yet */ }
+Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
+															if (check_func_exists($1->id,$3, retType))
+															{
+																$$.type = *retType;
+															}
+															else
+															{
+																errorUndefFunc(yylino,$1->id);
+															}
+														}
+			|	ID LPAREN RPAREN						{	Type_enum *retType;
+															if(check_func_exists($1->id,new Node(), retType))
+															{
+																$$.type = *retType;
+															}
+															else
+															{
+																errorUndefFunc(yylino, $1->id);
+															}
+														}
 			;
 
-ExpList		:	Exp							{	ExpList* l = new ExpList();
-												l.push_back($1);
-												$$ = l; }
-			|	Exp COMMA ExpList			{	ExpList* l = dynamic_cast<ExpList*>($3);
-												l.lst.push_front($1);
-												$$ = l; }
+ExpList		:	Exp										{	Node *node = new Node();
+															node->expList.push_back($1);
+															$$ = node; }
+			|	Exp COMMA ExpList						{	Node *l = ($3);
+															l->expList.push_front($1);
+															$$ = l; }
 			;
 
-Type		:	INT							{	$$ = new TypeInt(); }
-			|	BYTE						{	$$ = new TypeByte; }
-			|	BOOL						{	$$ = new TypeBool; }
+Type		:	INT										{	$$ = new Node(OUR_INT); }
+			|	BYTE									{	$$ = new Node(OUR_BYTE); }
+			|	BOOL									{	$$ = new Node(OUR_BOOL); }
 			;
 
-Exp			:	LPAREN	Exp RPAREN			{	$$ = $2; }
-			|	ID LBRACK Exp RBRACK		{	/*TODO: not handeled yet */ }
-			|	Exp BINOP Exp				{	$$ = new BinOp($1,$3);}
-			|	ID							{	/*TODO: not handeled yet */ }
-			|	Call						{	/*TODO: not handeled yet */ }
-			|	NUM							{	$$ = new Num(OUR_INT); }
-			|	NUM B						{	$$ = new Num(OUR_BYTE); }
-			|	STRING						{	$$ = new Node(OUR_STRING); }
-			|	TRUE						{	$$ = new Node(OUR_BOOL); }
-			|	FALSE						{	$$ = new Node(OUR_BOOL); }
-			|	Exp	AND	Exp					{	$$ = new AND($1,$3);}
-			|	Exp	OR Exp					{	$$ = new OR($1,$3);}
-			|	Exp	RELOP Exp				{	$$ = new RELOP($1,$3);}
-			|	NOT	Exp						{	$$ = new Not($2) }
+Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
+			|	ID LBRACK Exp RBRACK					{
+															if (!($3)->isNUM())
+															{
+																errorMismatch(yylineno);
+															}
+															Node* node;
+															if (!check_var_exists_id_is_array($1->id, node))
+															{
+																errorUndef(yylino, $1->id);
+															}
+															$$ = node;
+														}
+			|	Exp BINOP Exp							{	if(!(&1->isNum() && $3->isNum()))
+															{
+																errorMismatch(yylineno);
+															}
+															if(&1->isByte() && $3->isByte())
+															{
+																$$ = new Node(OUR_BYTE);
+															}
+															else
+															{
+																$$ = new Node(OUR_INT);
+															}
+														}
+			|	ID										{	
+															Node* node;
+															if (check_var_exists_id($1->id,node))
+																{
+																	$$ = node;
+																}
+															else
+																{
+																	errorUndef(yylino, $1->id);
+																}
+														}
+			|	Call									{	$$ = $1; }
+			|	NUM										{	
+															$$ = $1;
+														}
+			|	NUM B									{	
+															int val = $1->intVal;
+															if (val > 255)
+															{
+																errorByteTooLarge(yylineno, val);
+															}
+															$$ = new Node(OUR_BYTE,val); }
+			|	STRING									{	$$ = new Node(OUR_STRING); }
+			|	TRUE									{	$$ = new Node(OUR_BOOL); }
+			|	FALSE									{	$$ = new Node(OUR_BOOL); }
+			|	Exp	AND	Exp								{	if(!(&1->isBool() && $3->isBool()))
+															{
+																errorMismatch(yylineno);
+															}
+															$$ = new Node(OUR_BOOL);
+														}
+			|	Exp	OR Exp								{	if(!(&1->isBool() && $3->isBool()))
+															{
+																errorMismatch(yylineno);
+															}
+															$$ = new Node(OUR_BOOL);
+														}
+			|	Exp	RELOP Exp							{	if(!(&1->isNum() && $3->isNum()))
+															{
+																errorMismatch(yylineno);
+															}
+															$$ = new Node(OUR_BOOL);
+														}
+			|	NOT	Exp									{	if(!($2)->isBool())
+															{
+																errorMismatch(yylineno);
+															}
+															$$ = new Node(OUR_BOOL); }
 			;
 
 
@@ -199,8 +370,17 @@ int yyerror(char * message)
 
 void open_new_scope(bool is_break_allowed=false)
 {
-	VarTable v;
-	tableStack.push(b);
+	bool is_current_while = is_break_scope();
+	Type_enum retType = funcTable.top()->get_scope_type();
+	VarTable *v = new VarTable(is_break_allowed || is_current_while, retType);
+	tableStack.push(v);
+	offsetStack.push(offsetStack.top());
+}
+
+void open_new_function_scope(Type_enum retType)
+{
+	VarTable *v = new VarTable(false, retType);
+	tableStack.push(v);
 	offsetStack.push(offsetStack.top());
 }
 
@@ -229,24 +409,72 @@ void make_table()
 	f_table.push(printi_entry);
 
 	tableStack.push(f_table);
+	funcTable = &tableStack.top();
+
 	offsetStack.push(0);
 }
 
-bool check_var_exists(FormalsDecl frml)
+
+bool check_var_exists_id(string id, Node* retNode)
 {
 	if (tableStack.size() == 1)
 		return false;
-	
-	list<VarTableEntry> current_table_rows = (dynamic_cast<VarTable>(tableStack.top())).rows;
 
-	for (VarTableEntry entry : current_table_rows)
+	list<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable>(tableStack.top()))->rows;
+
+	for (VarTableEntry *entry : current_table_rows)
 	{
-		if (entry.frml == frml)
+		if (entry->node->id == id)
+		{
+			retNode = entry->node;
 			return true;
+		}
 	}
-	
+
 	VarTable temp = dynamic_cast<VarTable>(tableStack.pop());
-	bool res = check_var_exists(id, type);
+	bool res = check_var_exists_id(id, retNode);
 	tableStack.push(temp);
 	return res;
+}
+
+bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
+{
+	int i = 0;
+	for (FuncTableEntry entry : funcTable)
+	{
+		if (entry->id == id && entry->nodeList.size() == expListNode->expList.size())
+		{
+			for (Node* var : expListNode->expList)
+			{
+				if (!var->compareType(expListNode->expList.get(i)))
+				{
+					return false;
+				}
+				i++;
+			}
+			*retType = entry.retType;
+			return true;
+		}
+		
+	}
+	return false;
+}
+
+bool check_func_exists_name(string& id)
+{
+	int i = 0;
+	for (FuncTableEntry entry : funcTable)
+	{
+		if (entry.id == id)
+		{
+			return true;
+		}
+
+	}
+	return false;
+}
+
+bool is_break_scope()
+{
+	return funcTable.top()->is_while;
 }

@@ -51,8 +51,14 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 "="								return ASSIGN;
 "=="|"!="|"<"|">"|"<="|">="		return RELOP;
 "+"|"-"|"*"|"/"					return BINOP;
-{letter}{digitletter}*			return ID;
-"0"|[1-9][0-9]*					return NUM;
+{letter}{digitletter}*			{
+								yylval = new Node(yytext);
+								return ID;
+								}
+"0"|[1-9][0-9]*					{
+								yylval = new Node(atoi(yytext),yytext);
+								return NUM;
+								}
 ([^\n\r\"\\]|\\[rnt"\\])+		return STRING;
 <<EOF>>							return EOF1;
 .								output::errorLex(yylineno); return 0;

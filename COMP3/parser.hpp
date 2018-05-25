@@ -8,6 +8,8 @@
 
 using namespace std;
 
+#define YYSTYPE Node*
+
 typedef enum type_e {
 	OUR_INT,
 	OUR_BYTE,
@@ -22,11 +24,109 @@ class Node {
 public:
 	Type_enum type;
 	string id;
-	Node(Type_enum t = OUR_VOID, string id="") :type(t), id(id) {}
+	int intVal;
+	int arraySize;
+	bool isArray;
 
+	list<Node*> expList;
+	list<Node*> frmlList;
+
+	Node() {}
+	Node(string id, Type_enum type) {
+		this->id = id;
+		this->type = type;
+
+		this->intVal = 0;
+		this->arraySize = 0;
+		this->isArray = false;
+	}
+	Node(string id, Type_enum type, int array_size) {
+		this->id = id;
+		this->arraySize = arraySize;
+		this->isArray = true;
+		this->type = type;
+
+		this->intVal = 0;
+	}
+	Node(string id) {
+		this->id = id;
+		this->type = OUR_STRING;
+
+		this->intVal = 0;
+		this->arraySize = 0;
+		this->isArray = false;
+	}
+	Node(int intVal, string id) {
+		this->intVal = intVal;
+		this->type = OUR_INT;
+
+		this->id = id;
+		this->arraySize = 0;
+		this->isArray = false;
+	}
+	Node(Type_enum type) {
+		this->type = type;
+
+		this->id = "";
+		this->intVal = 0;
+		this->arraySize = 0;
+		this->isArray = false;
+	}
+	Node(Type_enum type, int intVal) {
+		this->type = type;
+		this->intVal = intVal;
+
+		this->id = "";
+		this->arraySize = 0;
+		this->isArray = false;
+	}
+
+	bool operator<(const Node& a)
+	{
+		return this->id < a.id;
+	}
+
+	bool compareType(Node* node)
+	{
+		if (this->type != node->type)
+			return false;
+		if (this->isArray != node->isArray)
+			return false;
+		if (this->arraySize != node->arraySize)
+			return false;
+		return true;
+	}
+
+	bool compareId(Node* node)
+	{
+		return (this->id == node->id);
+	}
+
+	bool operator==(Node* node)
+	{
+		return this->compareId(node) && this->compareType(node);
+	}
+
+	bool isBool()
+	{
+		return this->type == OUR_BOOL && !this->isArray;
+	}
+
+	bool isNum()
+	{
+		return (this->type == OUR_INT || this->type == OUR_BYTE) && !this->isArray;
+	}
+	
+	bool compareVar(Node *node)
+	{
+		return this->id == node->id && this->type == node->type && this->isArray == node->isArray;
+	}
+	
 	virtual ~Node() {}
-};
 
+
+};
+/*
 class TypeNonTerminal : public Node {
 public:
 	TypeNonTerminal(Type_enum t) : Node(t) {}
@@ -132,7 +232,19 @@ public:
 class ExpList : public Node {
 public:
 	list<Node*> lst;
+	ExpList(list<Node*> lst):lst(lst) {	}
 	ExpList() {	}
+	bool operator== (ExpList l)
+	{
+		int i = 0;
+		for (Node *n : this.lst)
+		{
+			if (n.id != l.lst.get(i).id || n.type != l.lst.get(i).type)
+				return false;
+			i++;
+		}
+		return true;
+	}
 };
 
 public:
@@ -147,7 +259,7 @@ public:
 	bool isArray;
 	bool isArrayByte;
 
-	bool operator<(const FormalsDecl& a)
+	bool operator<(const Node& a)
 	{
 		return this->id < a.id;
 	}
@@ -217,7 +329,6 @@ class Statement : public Node {
 	Exp e;
 };
 class Call : public Node {};
-class ExpList : public Node {};
 class TypeNonTerminal : public Node {};
 
 class FuncDecl : public Node {
@@ -228,150 +339,86 @@ class FuncDecl : public Node {
 public:
 	FuncDecl(RetType *retType, string id, Formals *formals) :id(id), retType(*retType), formals(*formals) {}
 };
-
-
-/*
-class Exp : public Node {
-};
-
-class Op : public Node {
-
-};
-
-class Not : public Exp {
-	Exp* e;
-
-public:
-	Not(Exp *e) : e(e) {}
-};
-
-class OR : public Exp {
-	Exp *e1, *e2;
-
-public:
-	Or(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
-};
-
-class And : public Exp {
-	Exp *e1, *e2;
-
-public:
-	And(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
-};
-
-class Binop : public Exp {
-	Exp *e1, *e2;
-
-public:
-	Binop(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
-};
-
-class Relop : public Exp {
-	Exp *e1, *e2;
-
-public:
-	Relop(Exp *e1, Exp *e2) : e1(e1), e2(e2) {}
-};
-
-class Num : public Node {
-
-	int value;
-};
-
-class String : public Node {
-
-	string val;
-};
-
-class Bool : public Node {
-
-	bool val;
-};
-
-class Int : public Num {
-
-};
-
-class Byte : public Num {
-
-};
-
-
-
-
-
-
-class Program : public Node {};
-class Funcs : public Node {};
-class RetType : public Node {
-
 */
-
-
-
-#define YYSTYPE Node*
 
 
 /* Symbol table */
 
-class VarType {
-public:
-	Type_enum type;
-	VarType(Type_enum type) :type(type) {}
-};
+//class VarType {
+//public:
+//	Type_enum type;
+//	VarType(Type_enum type) :type(type) {}
+//};
+//
+//class ArrayType : public VarType {
+//public:
+//	int size;
+//	ArrayType(Type_enum type, int size) :VarType(type), size(size) {}
+//};
 
-class ArrayType : public VarType {
+class TableEntry
+{
 public:
-	int size;
-	ArrayType(Type_enum type, int size) :VarType(type), size(size) {}
+	virtual ~TableEntry() {}
 };
 
 class Table
 {
+public:
+	bool is_while;
+	Type_enum retType;
+	Table() {}
+	Table(bool is_while = false, Type_enum retType = OUR_VOID) :is_while(is_while), retType(retType) {}
+
+	Type_enum get_scope_type()
+	{
+		return this->retType;
+	}
+	virtual void push(TableEntry entry) = 0;
+	virtual ~Table() {}
 };
 
-class VarTableEntry
+class VarTableEntry : public TableEntry
 {
-	FormalsDecl frml;
+	Node *node;
 	int offset;
 
 public:
-	VarTableEntry(FormalsDecl frml, int offset) : frml(frml), offset(offset) {	}
+	VarTableEntry(Node *node, int offset) : node(node), offset(offset) {	}
 };
 
-class FuncTableEntry
+class FuncTableEntry : public TableEntry
 {
 	string id;
 	Type_enum retType;
-	list<FormalsDecl> frmalsList;
+	list<Node*> nodeList;
 
 public:
-	FuncTableEntry(string id, Type_enum retType, list<VarType> frmalsList) :id(id), retType(retType), frmalsList(frmalsList) {	}
+	FuncTableEntry(string id, Type_enum retType, list<Node*> nodeList) :id(id), retType(retType), nodeList(nodeList) {	}
 };
 
 class VarTable : public Table //Scope table
 {
 public:
-	list<VarTableEntry> rows;
-	bool is_while;
-	VarTable(bool is_while = false) :is_while(is_while) {}
+	list<VarTableEntry*> rows;
+	VarTable(bool is_while = false) :Table(is_while) {}
 
-	void push(VarTableEntry entry)
+	virtual void push(TableEntry *entry)
 	{
-		rows.push_back(entry);
+		rows.push_back(dynamic_cast<VarTableEntry*>(entry));
 	}
 };
 
 class FuncTable : public Table
 {
-	list<FuncTableEntry> rows;
+	list<FuncTableEntry*> rows;
 
 public:
-	FuncTable() {}
+	FuncTable(bool is_while = false) :Table(is_while) {}
 
-	void push(FuncTableEntry entry)
+	virtual void push(TableEntry *entry)
 	{
-		rows.push_back(entry);
+		rows.push_back(dynamic_cast<FuncTableEntry*>(entry));
 	}
 };
 
