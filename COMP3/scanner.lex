@@ -21,6 +21,8 @@ cr				(\x0d)
 lf				(\x0a)
 linebreak		(\x0d\x0a|\x0d|\x0a)
 
+%x str
+
 %%
 
 {linebreak}						;
@@ -58,9 +60,10 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 "0"|[1-9][0-9]*					{
 									yylval = new Node(atoi(yytext),yytext);
 									return NUM;
-								}
-"( [^\n\r\"\\]|\\[rnt\"\\])+"		return STRING;
-<<EOF>>							return EOF1;
+}
+\"								BEGIN(str);
+<str>\"							BEGIN(INITIAL);return STRING;
+<str>([^\n\r\"\\]|\\[rnt"\\])+  ;
 .								output::errorLex(yylineno); return 0;
 
 %%

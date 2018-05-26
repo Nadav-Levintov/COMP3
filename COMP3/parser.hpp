@@ -7,6 +7,7 @@
 #include <climits>
 
 using namespace std;
+using namespace output;
 
 #define YYSTYPE Node*
 
@@ -128,12 +129,12 @@ public:
 	{
 		return (this->type == OUR_INT || this->type == OUR_BYTE) && !this->isArray;
 	}
-	
+
 	bool compareVar(Node *node)
 	{
 		return this->id == node->id && this->type == node->type && this->isArray == node->isArray;
 	}
-	
+
 	virtual ~Node() {}
 
 
@@ -368,6 +369,24 @@ public:
 //	ArrayType(Type_enum type, int size) :VarType(type), size(size) {}
 //};
 
+static string get_type(Type_enum t)
+{
+	switch (t)
+	{
+	case OUR_INT:
+		return "INT";
+	case OUR_BYTE:
+		return "BYTE";
+	case OUR_BOOL:
+		return "BOOL";
+	case OUR_STRING:
+		return "STRING";
+	default:
+		return "VOID";
+	}
+}
+
+
 class TableEntry
 {
 public:
@@ -386,14 +405,16 @@ public:
 	{
 		return this->retType;
 	}
-	
+
+	virtual void print_scope() = 0;
+
 	virtual ~Table() {}
 };
 
 class VarTableEntry : public TableEntry
 {
 public:
-	Node *node;
+	Node * node;
 	int offset;
 	VarTableEntry(Node *node, int offset) : node(node), offset(offset) {	}
 };
@@ -412,11 +433,25 @@ class VarTable : public Table //Scope table
 {
 public:
 	vector<VarTableEntry*> rows;
-	VarTable(bool is_while,Type_enum type) :Table(is_while, type) {}
+	VarTable(bool is_while, Type_enum type) :Table(is_while, type) {}
 
 	void push(VarTableEntry *entry)
 	{
 		rows.push_back(entry);
+	}
+
+	virtual void print_scope()
+	{
+		string t = "";
+		for (int i = 0; i < this->rows.size(); i++)
+		{
+			t = get_type(rows[i]->node->type);
+			if (rows[i]->node->isArray)
+			{
+				t = makeArrayType(t, rows[i]->node->arraySize);
+			}
+			printID(rows[i]->node->id, rows[i]->offset, t);
+		}
 	}
 };
 
@@ -430,6 +465,29 @@ public:
 	{
 		rows.push_back(entry);
 	}
+
+	virtual void print_scope()
+	{
+		string t = "";
+		vector<string> types;
+		for (int i = 0; i < this->rows.size(); i++)
+		{
+			t = get_type(rows[i]->retType);
+			for (int j = 0; j < rows[i]->nodeList.size(); j++)
+			{
+				if (rows[i]->nodeList[j]->isArray)
+					types.push_back(makeArrayType(get_type(rows[i]->nodeList[j]->type), rows[i]->nodeList[j]->arraySize));
+				else
+					types.push_back(get_type(rows[i]->nodeList[j]->type));
+			}
+			t = makeFunctionType(t, types);
+
+			printID(rows[i]->id, 0, t);
+
+			types.clear();
+		}
+	}
+
 };
 
 

@@ -11,6 +11,7 @@
 
 #define BYTE_MAX_SIZE 255
 #define YYERROR_VERBOSE 1
+#define YYDEBUG 1 
 
 	stack<Table*> tableStack;
 	FuncTable* funcTable;
@@ -25,7 +26,7 @@
 	bool check_var_exists_id(string id, Node** retNode);
 	void open_new_scope(bool is_break_allowed);
 	void open_new_function_scope(Type_enum retType);
-	bool check_func_exists(string& id, Node* expListNode, Type_enum *retType);
+	bool check_func_exists(string& id, Node* expListNode, Type_enum **retType);
 	void close_scope();
 %}
 
@@ -222,7 +223,7 @@ Statement	:	LBRACE Statements RBRACE
 			|	IF LPAREN Exp RPAREN					{
 															if (!$3->isBool())
 																errorMismatch(yylineno);
-																open_new_scope(false);
+															open_new_scope(false);
 														} Statement{
 															close_scope();
 														}
@@ -251,7 +252,7 @@ Statement	:	LBRACE Statements RBRACE
 			;
 
 Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
-															if (check_func_exists($1->id,$3, retType))
+															if (check_func_exists($1->id,$3, &retType))
 															{
 																$$->type = *retType;
 															}
@@ -261,7 +262,7 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 															}
 														}
 			|	ID LPAREN RPAREN						{	Type_enum *retType;
-															if(check_func_exists($1->id,new Node(), retType))
+															if(check_func_exists($1->id,new Node(), &retType))
 															{
 																$$->type = *retType;
 															}
@@ -366,6 +367,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 
 int main()
 {
+	//yydebug = 1;
 	yyparse();
 }
 
@@ -392,6 +394,10 @@ void open_new_function_scope(Type_enum retType)
 }
 
 void close_scope() {
+	/*print*/
+	endScope();
+	cout << "endscope" << endl;
+	tableStack.top()->print_scope();
 
 	tableStack.pop();
 	offsetStack.pop();
@@ -432,7 +438,7 @@ bool check_var_exists_id(string id, Node** retNode)
 	{
 		if (current_table_rows[i]->node->id == id)
 		{
-			retNode = &(current_table_rows[i]->node);
+			*retNode = (current_table_rows[i]->node);
 			return true;
 		}
 	}
@@ -444,23 +450,20 @@ bool check_var_exists_id(string id, Node** retNode)
 	return res;
 }
 
-bool check_func_exists(string& id, Node* expListNode, Type_enum *retType)
+bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 {
-	int i = 0;
-
 	for (vector<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
 	{
 		if ((*it)->id == id && (*it)->nodeList.size() == expListNode->expList.size())
 		{
-			for( vector<Node*>::iterator nodeIt = (*it)->nodeList.begin(); nodeIt!= (*it)->nodeList.end();it++)
+			for(int j=0;j<(*it)->nodeList.size();j++)
 			{
-				if (!(*nodeIt)->compareType(expListNode->expList[i]))
+				if (!expListNode->expList[j]->compareType((*it)->nodeList[j]))
 				{
 					return false;
 				}
-				i++;
 			}
-			*retType = (*it)->retType;
+			*retType = &(*it)->retType;
 			return true;
 		}
 		
