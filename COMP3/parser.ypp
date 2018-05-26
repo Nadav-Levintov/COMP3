@@ -10,6 +10,7 @@
 	using namespace output;
 
 #define BYTE_MAX_SIZE 255
+#define ARRAY_MIN_SIZE 1
 #define YYERROR_VERBOSE 1
 #define YYDEBUG 1 
 
@@ -126,9 +127,16 @@ FormalsList:	FormalsDecl								{
 			;
 
 FormalsDecl:	Type ID									{ $$ = new Node($2->id, $1->type);}
-			|	Type ID LBRACK NUM RBRACK				{ $$ = new Node($2->id, $1->type, $4->intVal); }
+			|	Type ID LBRACK NUM RBRACK				{
+															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
+															{
+																errorInvalidArraySize(yylineno,$2->id);
+																exit(0);
+															}
+															$$ = new Node($2->id, $1->type, $4->intVal);
+														}
 			|	Type ID LBRACK NUM B RBRACK				{ 
-															if ($4->intVal > BYTE_MAX_SIZE)
+															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
 															{
 																errorByteTooLarge(yylineno,$4->id);
 																exit(0);
@@ -178,9 +186,9 @@ Statement	:	LBRACE Statements RBRACE
 																errorDef(yylineno, $1->id);
 																exit(0);
 															}
-															if ($4->intVal > BYTE_MAX_SIZE)
+															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
 															{
-																errorInvalidArraySize(yylineno, $4->id);
+																errorInvalidArraySize(yylineno, $2->id);
 																exit(0);
 															}
 															Node* newNode = new Node($2->id, $1->type, $4->intVal);
@@ -195,9 +203,9 @@ Statement	:	LBRACE Statements RBRACE
 																errorDef(yylineno, $1->id);
 																exit(0);
 															}
-															if ($4->intVal > BYTE_MAX_SIZE) 
+															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
 															{
-																errorByteTooLarge(yylineno, $4->id);
+																errorInvalidArraySize(yylineno, $2->id);
 																exit(0);
 															}
 															Node* newNode = new Node($2->id, $1->type, $4->intVal);
