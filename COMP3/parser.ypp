@@ -64,6 +64,9 @@
 %%
 
 Program		: { make_table(); }	Funcs					{
+															/*print*/
+															endScope();
+															tableStack.top()->print_scope();
 															tableStack.pop();
 															offsetStack.pop();
 														}
@@ -133,7 +136,7 @@ Statements	:	Statement
 Statement	:	LBRACE Statements RBRACE		
 			|	Type ID SC								{	
 															Node* node;
-															if (!check_var_exists_id($1->id, &node))
+															if (check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
 															}
@@ -144,7 +147,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	Type ID ASSIGN Exp SC					{	
 															Node* node;
-															if (!check_var_exists_id($1->id, &node))
+															if (check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
 															}
@@ -396,7 +399,6 @@ void open_new_function_scope(Type_enum retType)
 void close_scope() {
 	/*print*/
 	endScope();
-	cout << "endscope" << endl;
 	tableStack.top()->print_scope();
 
 	tableStack.pop();
