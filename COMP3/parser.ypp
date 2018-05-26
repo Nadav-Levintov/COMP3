@@ -499,7 +499,6 @@ bool check_var_exists_id(string id, Node** retNode)
 		return false;
 	
 	vector<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
-	//for(vector<VarTableEntry*>::iterator it = current_table_rows.begin(); it != current_table_rows.end();it++)
 	for (int i=0; i< current_table_rows.size() ; i++)
 	{
 		if (current_table_rows[i]->node->id == id)

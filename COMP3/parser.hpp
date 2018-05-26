@@ -42,7 +42,7 @@ public:
 		this->arraySize = 0;
 		this->isArray = false;
 	}
-	Node(string id, Type_enum type, int array_size) {
+	Node(string id, Type_enum type, int arraySize) {
 		this->id = id;
 		this->arraySize = arraySize;
 		this->isArray = true;
