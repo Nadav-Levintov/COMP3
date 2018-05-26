@@ -136,9 +136,14 @@ FormalsDecl:	Type ID									{ $$ = new Node($2->id, $1->type);}
 															$$ = new Node($2->id, $1->type, $4->intVal);
 														}
 			|	Type ID LBRACK NUM B RBRACK				{ 
+															if ($4->intVal > BYTE_MAX_SIZE)
+															{
+																errorByteTooLarge(yylineno, $4->id);
+																exit(0);
+															}
 															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
 															{
-																errorByteTooLarge(yylineno,$4->id);
+																errorInvalidArraySize(yylineno, $2->id);
 																exit(0);
 															}
 															$$ = new Node($2->id, $1->type, $4->intVal); 
@@ -201,6 +206,11 @@ Statement	:	LBRACE Statements RBRACE
 															if (check_var_exists_id($1->id, &node))
 															{
 																errorDef(yylineno, $1->id);
+																exit(0);
+															}
+															if ($4->intVal > BYTE_MAX_SIZE)
+															{
+																errorByteTooLarge(yylineno, $4->id);
 																exit(0);
 															}
 															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
