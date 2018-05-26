@@ -248,9 +248,9 @@ Statement	:	LBRACE Statements RBRACE
 																exit(0);
 															}
 														}
-			| %prec ELSE	IF Mark1 Statement Mark2 ELSE Mark3 Statement Mark2
-			| %prec IF		IF Mark1 Statement Mark2
-			|				WHILE Mark1 Statement Mark2
+			| 	IF Mark1 Statement Mark2 ELSE Mark3 Statement Mark2		%prec ELSE
+			| 	IF Mark1 Statement Mark2								%prec IF	
+			|	WHILE Mark1 Statement Mark2
 			|	BREAK SC								{ 
 															if(!is_break_scope() )
 															{
@@ -405,13 +405,16 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 
 int main()
 {
+	//set this to 1 to show more info
 	//yydebug = 1;
 	yyparse();
 }
 
 int yyerror(const char * message)
 {
-	cout<<"Parse error: "<<message <<" "<<yylineno <<endl;
+	errorSyn(yylineno);
+	if (yydebug)
+		cout<<"Parse error: "<<message <<" line:"<<yylineno <<endl;
 	exit(0);
 }
 
