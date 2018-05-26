@@ -250,12 +250,19 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			| 	IF Mark1 Statement Mark2 ELSE Mark3 Statement Mark2		%prec ELSE
 			| 	IF Mark1 Statement Mark2								%prec IF	
-			|	WHILE Mark1 Statement Mark2
+			|	WHILE LPAREN Exp RPAREN{
+															if (!$3->isBool())
+															{
+																errorMismatch(yylineno);
+																exit(0);
+															}
+															open_new_scope(true);
+														} Statement Mark2
 			|	BREAK SC								{ 
 															if(!is_break_scope() )
 															{
-															errorUnexpectedBreak(yylineno);
-															exit(0);
+																errorUnexpectedBreak(yylineno);
+																exit(0);
 															}
 														}
 			;
@@ -266,13 +273,13 @@ Mark1		:		LPAREN Exp RPAREN					{
 																errorMismatch(yylineno);
 																exit(0);
 															}
-															open_new_scope(true);
-														}
-			  ;
+															open_new_scope(false);
+														} ;
 
 Mark2		:										{
 														close_scope();
 													};
+
 Mark3		:										{
 														open_new_scope(false);
 													};
@@ -412,6 +419,7 @@ int main()
 
 int yyerror(const char * message)
 {
+	close_scope();
 	errorSyn(yylineno);
 	if (yydebug)
 		cout<<"Parse error: "<<message <<" line:"<<yylineno <<endl;
