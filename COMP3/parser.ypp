@@ -84,6 +84,12 @@ Funcs		:
 			;
 
 FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
+															Node* node;
+															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
+															{
+																errorDef(yylineno, $2->id);
+																exit(0);
+															}
 															FuncTable *f_table = dynamic_cast<FuncTable*>(tableStack.top());
 															Type_enum retType = $1->type;
 															FuncTableEntry *func_entry = new FuncTableEntry($2->id, retType, $4->frmlList);
@@ -160,9 +166,9 @@ Statements	:	Statement
 Statement	:	LBRACE Statements RBRACE		
 			|	Type ID SC								{	
 															Node* node;
-															if (check_var_exists_id($1->id, &node))
+															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
 															{
-																errorDef(yylineno, $1->id);
+																errorDef(yylineno, $2->id);
 																exit(0);
 															}
 															Node* newNode = new Node($2->id, $1->type);
@@ -172,9 +178,9 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	Type ID ASSIGN Exp SC					{	
 															Node* node;
-															if (check_var_exists_id($1->id, &node))
+															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
 															{
-																errorDef(yylineno, $1->id);
+																errorDef(yylineno, $2->id);
 																exit(0);
 															}
 															if (!isAssignable($1->type, false ,$4->type,$4->isArray))
@@ -189,9 +195,9 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	Type ID LBRACK NUM RBRACK SC			{	
 															Node* node;
-															if (check_var_exists_id($1->id, &node))
+															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
 															{
-																errorDef(yylineno, $1->id);
+																errorDef(yylineno, $2->id);
 																exit(0);
 															}
 															if ($4->intVal > BYTE_MAX_SIZE || $4->intVal < ARRAY_MIN_SIZE)
@@ -206,9 +212,9 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			| Type ID LBRACK NUM B RBRACK SC			{	
 															Node* node;
-															if (check_var_exists_id($1->id, &node))
+															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
 															{
-																errorDef(yylineno, $1->id);
+																errorDef(yylineno, $2->id);
 																exit(0);
 															}
 															if ($4->intVal > BYTE_MAX_SIZE)
@@ -572,6 +578,7 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 bool check_func_exists_name(string id)
 {
 	int i = 0;
+
 	for (vector<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
 	{
 		if ((*it)->id == id)
