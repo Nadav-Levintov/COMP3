@@ -177,7 +177,7 @@ Statement	:	LBRACE Statements RBRACE
 																errorDef(yylineno, $1->id);
 																exit(0);
 															}
-															if (!isAssignable(node->type, node->isArray,$4->type,$4->isArray))
+															if (!isAssignable($1->type, false ,$4->type,$4->isArray))
 															{
 																errorMismatch(yylineno);
 																exit(0);
