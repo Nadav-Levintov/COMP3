@@ -20,6 +20,23 @@ typedef enum type_e {
 	OUR_VOID
 }Type_enum;
 
+static string get_type_string(Type_enum t)
+{
+	switch (t)
+	{
+	case OUR_INT:
+		return "INT";
+	case OUR_BYTE:
+		return "BYTE";
+	case OUR_BOOL:
+		return "BOOL";
+	case OUR_STRING:
+		return "STRING";
+	default:
+		return "VOID";
+	}
+}
+
 /* YYSTYPE */
 
 class Node {
@@ -141,22 +158,7 @@ public:
 
 };
 
-static string get_type(Type_enum t)
-{
-	switch (t)
-	{
-	case OUR_INT:
-		return "INT";
-	case OUR_BYTE:
-		return "BYTE";
-	case OUR_BOOL:
-		return "BOOL";
-	case OUR_STRING:
-		return "STRING";
-	default:
-		return "VOID";
-	}
-}
+
 
 
 class TableEntry
@@ -217,7 +219,7 @@ public:
 		string t = "";
 		for (int i = 0; i < this->rows.size(); i++)
 		{
-			t = get_type(rows[i]->node->type);
+			t = get_type_string(rows[i]->node->type);
 			if (rows[i]->node->isArray)
 			{
 				t = makeArrayType(t, rows[i]->node->arraySize);
@@ -244,13 +246,13 @@ public:
 		vector<string> types;
 		for (int i = 0; i < this->rows.size(); i++)
 		{
-			t = get_type(rows[i]->retType);
+			t = get_type_string(rows[i]->retType);
 			for (int j = 0; j < rows[i]->nodeList.size(); j++)
 			{
 				if (rows[i]->nodeList[j]->isArray)
-					types.push_back(makeArrayType(get_type(rows[i]->nodeList[j]->type), rows[i]->nodeList[j]->arraySize));
+					types.push_back(makeArrayType(get_type_string(rows[i]->nodeList[j]->type), rows[i]->nodeList[j]->arraySize));
 				else
-					types.push_back(get_type(rows[i]->nodeList[j]->type));
+					types.push_back(get_type_string(rows[i]->nodeList[j]->type));
 			}
 			t = makeFunctionType(t, types);
 
