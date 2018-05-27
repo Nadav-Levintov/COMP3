@@ -30,6 +30,7 @@
 	bool check_func_exists(string& id, Node* expListNode, Type_enum **retType);
 	void close_scope();
 	bool check_func_exists_name(string id);
+	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, Type_enum TypeAssigned, bool assignedIsArray);
 %}
 
 %token VOID
@@ -88,19 +89,21 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 															FuncTableEntry *func_entry = new FuncTableEntry($2->id, retType, $4->frmlList);
 															f_table->push(func_entry);
 															open_new_function_scope($1->type);
-															int param_offset = -1;
+															int param_offset = 0;
 															for (vector<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
 															{
 																VarTableEntry *var_entry;
 																Node* frml = (*it);
 																if (frml->isArray)
 																{
+																	param_offset -= frml->arraySize;
 																	var_entry = new VarTableEntry(frml, param_offset);
-																	param_offset-= frml->arraySize;
+																	
 																}
 																else {
-																	var_entry = new VarTableEntry(frml, param_offset);
 																	param_offset--;
+																	var_entry = new VarTableEntry(frml, param_offset);
+																	
 																}
 																dynamic_cast<VarTable*>(tableStack.top())->push(var_entry);
 
@@ -174,7 +177,7 @@ Statement	:	LBRACE Statements RBRACE
 																errorDef(yylineno, $1->id);
 																exit(0);
 															}
-															if (!$4->compareType($1))
+															if (!isAssignable(node->type, node->isArray,$4->type,$4->isArray))
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -230,7 +233,7 @@ Statement	:	LBRACE Statements RBRACE
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
-															if (!node->compareType($3)) 
+															if (!isAssignable(node->type, node->isArray, $3->type, $3->isArray))
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -243,7 +246,7 @@ Statement	:	LBRACE Statements RBRACE
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
-															if (node->type != $6->type || !$3->isNum() || !node->isArray)
+															if (!isAssignable(node->type, false, $6->type, $6->isArray) || !$3->isNum() || !node->isArray)
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -353,7 +356,8 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
-															$$ = node;
+															$$ = new Node(node);
+															$$->isArray = false;
 														}
 			|	Exp BINOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -431,7 +435,9 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 int main()
 {
 	//set this to 1 to show more info
-	//yydebug = 1;
+#ifdef DEBUG
+	yydebug = 1;
+#endif
 	yyparse();
 }
 
@@ -553,4 +559,14 @@ bool check_func_exists_name(string id)
 bool is_break_scope()
 {
 	return tableStack.top()->is_while;
+}
+
+bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, Type_enum TypeAssigned, bool assignedIsArray)
+{
+	if (typeAssignedTo == TypeAssigned || (typeAssignedTo == OUR_INT && TypeAssigned == OUR_BYTE))
+	{
+		return assignedToIsArray == assignedIsArray;
+	}
+
+	return false;
 }
