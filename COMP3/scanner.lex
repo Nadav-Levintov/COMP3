@@ -65,6 +65,6 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 <str>\"							BEGIN(INITIAL);return STRING;
 <str>([^\n\r\"\\]|\\[rnt"\\])+  ;
 "//"[^\r\n]*[\r|\n|\r\n]?		;
-.								output::errorLex(yylineno); return 0;
+.								output::errorLex(yylineno); exit(0);
 
 %%
