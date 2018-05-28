@@ -118,7 +118,7 @@ public:
 			return false;
 		if (this->isArray != node->isArray)
 			return false;
-		if (this->arraySize != node->arraySize)
+		if (this->isArray && node->isArray && this->arraySize != node->arraySize)
 			return false;
 		return true;
 	}

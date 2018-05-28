@@ -581,8 +581,12 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 	{
 		for (int i = 0; i < func->nodeList.size(); i++)
 		{
-			types.push_back(get_type_string(func->nodeList[i]->type));
+			if (func->nodeList[i]->isArray)
+				types.push_back(makeArrayType(get_type_string(func->nodeList[i]->type), func->nodeList[i]->arraySize));
+			else
+				types.push_back(get_type_string(func->nodeList[i]->type));
 		}
+		//cout << "*******************1" << endl;
 		errorPrototypeMismatch(yylineno, id, types);
 		exit(0);
 	}
@@ -594,8 +598,16 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 			{
 				for (int i = 0; i < func->nodeList.size(); i++)
 				{
-					types.push_back(get_type_string(func->nodeList[i]->type));
+					if (func->nodeList[i]->isArray)
+						types.push_back(makeArrayType(get_type_string(func->nodeList[i]->type), func->nodeList[i]->arraySize));
+					else
+						types.push_back(get_type_string(func->nodeList[i]->type));
 				}
+				//cout << "func->nodeList[j] "	  << func->nodeList[j]->type          <<endl;
+				//cout << "func->nodeList[j] " << func->nodeList[j]->isArray << endl;
+				//cout << "expListNode->expList[j]" << expListNode->expList[j]->type << endl;
+				//cout << "expListNode->expList[j]" << expListNode->expList[j]->isArray <<endl;
+				//cout << "*******************2" << endl;
 				errorPrototypeMismatch(yylineno, id, types);
 				exit(0);
 			}
