@@ -31,6 +31,9 @@
 	void close_scope();
 	bool check_func_exists_name(string id);
 	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize);
+	bool isAssignable(Node* assignedTo, Node* assigned);
+
+
 %}
 
 %token VOID
@@ -594,7 +597,7 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 
 		for (int j = 0; j<func->nodeList.size(); j++)
 		{
-			if (!expListNode->expList[j]->compareType(func->nodeList[j]))
+			if(!isAssignable(func->nodeList[j], expListNode->expList[j]))
 			{
 				for (int i = 0; i < func->nodeList.size(); i++)
 				{
@@ -639,6 +642,25 @@ bool is_break_scope()
 
 bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray,int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize)
 {
+	if (typeAssignedTo == TypeAssigned || (!assignedToIsArray && typeAssignedTo == OUR_INT && TypeAssigned == OUR_BYTE))
+	{
+		if (assignedToIsArray)
+			return assignedToIsArray == assignedIsArray && assignedToSize == assingedSize;
+		else
+			return assignedToIsArray == assignedIsArray;
+	}
+
+	return false;
+}
+bool isAssignable(Node* assignedTo, Node* assigned)
+{
+	Type_enum typeAssignedTo = assignedTo->type;
+	Type_enum TypeAssigned = assigned->type;
+	bool assignedToIsArray = assignedTo->isArray;
+	bool assignedIsArray = assigned->isArray;
+	int assignedToSize = assignedTo->arraySize;
+	int assingedSize = assigned->arraySize;
+
 	if (typeAssignedTo == TypeAssigned || (!assignedToIsArray && typeAssignedTo == OUR_INT && TypeAssigned == OUR_BYTE))
 	{
 		if (assignedToIsArray)
