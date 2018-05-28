@@ -294,7 +294,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 														}
 			|	Call SC
 			|	RETURN SC								{
-															Type_enum scopeRetType = funcTable->get_scope_type();
+															Type_enum scopeRetType = (tableStack.top())->get_scope_type();
 															if (scopeRetType != OUR_VOID)
 															{
 																errorMismatch(yylineno);

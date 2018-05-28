@@ -17,7 +17,8 @@ typedef enum type_e {
 	OUR_BYTE,
 	OUR_BOOL,
 	OUR_STRING,
-	OUR_VOID
+	OUR_VOID,
+	TYPE_ERROR
 }Type_enum;
 
 static string get_type_string(Type_enum t)
@@ -173,10 +174,15 @@ public:
 	bool is_while;
 	Type_enum retType;
 	Table() {}
-	Table(bool is_while = false, Type_enum retType = OUR_VOID) :is_while(is_while), retType(retType) {}
+	Table(bool is_while = false, Type_enum retType = TYPE_ERROR) :is_while(is_while), retType(retType) {}
 
 	Type_enum get_scope_type()
 	{
+		if (this->retType == TYPE_ERROR)
+		{
+			errorSyn(yylineno);
+			exit(0);
+		}
 		return this->retType;
 	}
 
