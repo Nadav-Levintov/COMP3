@@ -71,6 +71,31 @@ Program		: { make_table(); }	Funcs					{
 																errorMainMissing();
 																exit(0);
 															}
+
+															FuncTableEntry* func;
+
+															for (vector<FuncTableEntry*>::iterator it = funcTable->rows.begin(); it != funcTable->rows.end(); it++)
+															{
+																if ((*it)->id == "main" )
+																{
+																	func = (*it);
+																	break;
+																}
+																
+															}
+															
+															if (func->nodeList.size() != 0)
+															{
+																errorMainMissing();
+																exit(0);
+															}
+
+															if (OUR_VOID != func->retType)
+															{
+																errorMainMissing();
+																exit(0);
+															}
+
 															/*print*/
 															endScope();
 															tableStack.top()->print_scope();
