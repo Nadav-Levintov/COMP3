@@ -30,7 +30,7 @@
 	bool check_func_exists(string& id, Node* expListNode, Type_enum **retType);
 	void close_scope();
 	bool check_func_exists_name(string id);
-	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, Type_enum TypeAssigned, bool assignedIsArray);
+	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize);
 %}
 
 %token VOID
@@ -214,7 +214,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorDef(yylineno, $2->id);
 																exit(0);
 															}
-															if (!isAssignable($1->type, false ,$4->type,$4->isArray))
+															if (!isAssignable($1->type, false , $1->arraySize,$4->type,$4->isArray, $4->arraySize))
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -270,7 +270,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
-															if (!isAssignable(node->type, node->isArray, $3->type, $3->isArray))
+															if (!isAssignable(node->type, node->isArray, node->arraySize, $3->type, $3->isArray, $3->arraySize))
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -283,7 +283,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
-															if (!isAssignable(node->type, false, $6->type, $6->isArray) || !$3->isNum() || !node->isArray)
+															if (!isAssignable(node->type, false, node->arraySize, $6->type, $6->isArray , $6->arraySize) || !$3->isNum() || !node->isArray)
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -300,7 +300,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 														}
 			|	RETURN Exp SC							{
 															Type_enum scopeRetType = (tableStack.top())->get_scope_type();
-															if (!isAssignable(scopeRetType, false, $2->type, $2->isArray))
+															if (!isAssignable(scopeRetType, false, 0, $2->type, $2->isArray, $2->arraySize))
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -625,11 +625,14 @@ bool is_break_scope()
 	return tableStack.top()->is_while;
 }
 
-bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, Type_enum TypeAssigned, bool assignedIsArray)
+bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray,int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize)
 {
 	if (typeAssignedTo == TypeAssigned || (typeAssignedTo == OUR_INT && TypeAssigned == OUR_BYTE))
 	{
-		return assignedToIsArray == assignedIsArray;
+		if (assignedToIsArray)
+			return assignedToIsArray == assignedIsArray && assignedToSize == assingedSize;
+		else
+			return assignedToIsArray == assignedIsArray;
 	}
 
 	return false;
