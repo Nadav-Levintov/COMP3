@@ -169,7 +169,7 @@ Statements	:	Statement
 			|	Statements Statement
 			;
 
-Statement	:	LBRACE Statements RBRACE		
+Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 			|	Type ID SC								{	
 															Node* node;
 															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
