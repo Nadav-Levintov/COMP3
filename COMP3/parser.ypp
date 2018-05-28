@@ -269,7 +269,7 @@ Statement	:	LBRACE Statements RBRACE
 														}
 			|	RETURN Exp SC							{
 															Type_enum scopeRetType = (tableStack.top())->get_scope_type();
-															if (scopeRetType != $2->type)
+															if (scopeRetType != $2->type || $2->isArray)
 															{
 																errorMismatch(yylineno);
 																exit(0);
