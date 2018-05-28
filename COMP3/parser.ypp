@@ -99,7 +99,13 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 															for (vector<Node*>::iterator it = $4->frmlList.begin();it != $4->frmlList.end(); it++)
 															{
 																VarTableEntry *var_entry;
+																Node* temp;
 																Node* frml = (*it);
+																if (check_var_exists_id(frml->id, &temp) || check_func_exists_name(frml->id))
+																{
+																	errorDef(yylineno, frml->id);
+																	exit(0);
+																}
 																if (frml->isArray)
 																{
 																	param_offset -= frml->arraySize;
