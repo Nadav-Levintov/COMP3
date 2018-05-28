@@ -455,7 +455,6 @@ int main()
 
 int yyerror(const char * message)
 {
-	close_scope();
 	errorSyn(yylineno);
 	if (yydebug)
 		cout<<"Parse error: "<<message <<" line:"<<yylineno <<endl;
