@@ -18,10 +18,6 @@
 	FuncTable* funcTable;
 	stack<int> offsetStack;
 
-	extern int yylex();
-	extern int yylineno;
-	int yyerror(const char * message);
-
 	void make_table();
 	bool is_break_scope();
 	bool check_var_exists_id(string id, Node** retNode);
@@ -36,6 +32,7 @@
 
 %}
 
+%start S
 %token VOID
 %token INT
 %token BYTE
@@ -65,10 +62,11 @@
 %token NUM
 %token STRING
 %nonassoc  ELSE
+%token EOF1
 
 %%
 
-Program		: { make_table(); }	Funcs					{
+S			:	Program EOF1 {
 															if (!check_func_exists_name("main"))
 															{
 																errorMainMissing();
@@ -105,6 +103,9 @@ Program		: { make_table(); }	Funcs					{
 															tableStack.pop();
 															offsetStack.pop();
 														}
+			;
+
+Program		: { make_table(); }	Funcs					
 			;
 
 Funcs		:
@@ -396,6 +397,11 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
+															if (!node->isArray)
+															{
+																errorMismatch(yylineno);
+																exit(0);
+															}
 															$$ = new Node(node);
 															$$->isArray = false;
 														}
@@ -642,6 +648,8 @@ bool is_break_scope()
 
 bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray,int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize)
 {
+	if (typeAssignedTo == OUR_VOID || TypeAssigned == OUR_VOID || typeAssignedTo == TYPE_ERROR || TypeAssigned == TYPE_ERROR)
+		return false;
 	if (typeAssignedTo == TypeAssigned || (!assignedToIsArray && typeAssignedTo == OUR_INT && TypeAssigned == OUR_BYTE))
 	{
 		if (assignedToIsArray)
@@ -660,6 +668,9 @@ bool isAssignable(Node* assignedTo, Node* assigned)
 	bool assignedIsArray = assigned->isArray;
 	int assignedToSize = assignedTo->arraySize;
 	int assingedSize = assigned->arraySize;
+
+	if (typeAssignedTo == OUR_VOID || TypeAssigned == OUR_VOID || typeAssignedTo == TYPE_ERROR || TypeAssigned == TYPE_ERROR)
+		return false;
 
 	if (typeAssignedTo == TypeAssigned || (!assignedToIsArray && typeAssignedTo == OUR_INT && TypeAssigned == OUR_BYTE))
 	{

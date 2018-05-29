@@ -10,6 +10,10 @@
 using namespace std;
 using namespace output;
 
+extern int yylex();
+extern int yylineno;
+int yyerror(const char * message);
+
 #define YYSTYPE Node*
 
 typedef enum type_e {

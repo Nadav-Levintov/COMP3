@@ -22,6 +22,7 @@ lf				(\x0a)
 linebreak		(\x0d\x0a|\x0d|\x0a)
 
 %x str
+%x REALLYEND
 
 %%
 
@@ -65,6 +66,8 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 <str>\"							BEGIN(INITIAL);return STRING;
 <str>([^\n\r\"\\]|\\[rnt"\\])+  ;
 "//"[^\r\n]*[\r|\n|\r\n]?		;
+<REALLYEND><<EOF>>				{ return 0; }
+<INITIAL><<EOF>>				{ BEGIN(REALLYEND); return EOF1; }
 .								output::errorLex(yylineno); exit(0);
 
 %%
