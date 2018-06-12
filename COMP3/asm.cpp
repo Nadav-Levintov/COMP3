@@ -1,15 +1,6 @@
 #include "asm.hpp"
 #include <sstream>
 
-#define EMIT(str) CodeBuffer::instance().emit(str)
-#define EMITDATA(str) CodeBuffer::instance().emitData(str)
-#define EMITFP EMIT("subu $fp, $sp, 4")
-#define REG_TO_STR(reg) RegPool::regToString(reg)
-#define REG_FREE(r) RegPool::freeReg(r)
-#define EMIT_OP(op,r1,r2) EMIT(op + REG_TO_STR(r1) + " ,"+ REG_TO_STR(r1)+" ," + REG_TO_STR(r2))
-#define MFLO(r) EMIT(string("mflo ") + REG_TO_STR(r1))
-#define MAKE_LIST(n) CodeBuffer::makelist(n)
-
 
 Reg makeExp(string val)
 {

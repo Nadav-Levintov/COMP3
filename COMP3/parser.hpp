@@ -52,12 +52,16 @@ public:
 	int intVal;
 	int arraySize;
 	bool isArray;
+	/* HW5 */
 	Reg place;
+	string nextLabel;
+	int codeLineNum;
+
 
 	vector<Node*> expList;
 	vector<Node*> frmlList;
-	vector<int> trueList;
-	vector<int> falseList;
+	vector<int> *trueList;
+	vector<int> *falseList;
 
 	Node() {}
 	Node(string id, Type_enum type) {

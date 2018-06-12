@@ -5,6 +5,8 @@
 	#include <stack>
 	#include "output.hpp"
 	#include "parser.hpp"
+	#include "asm.hpp"
+
 
 	using namespace std;
 	using namespace output;
@@ -12,7 +14,7 @@
 #define BYTE_MAX_SIZE 255
 #define ARRAY_MIN_SIZE 1
 #define YYERROR_VERBOSE 1
-#define YYDEBUG 1 
+#define YYDEBUG 1 
 
 	stack<Table*> tableStack;
 	FuncTable* funcTable;
@@ -418,6 +420,13 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															{
 																$$ = new Node(OUR_INT);
 															}
+
+															$$->place = makeBinOpExp($2->id, $1->place, $3->place);
+															if ($1->isByte() && $3->isByte())
+															{
+																EMIT("and " + REG_TO_STR($$->place) + " ," + REG_TO_STR($$->place) + " ,0xff");
+															}
+
 														}
 			|	ID										{	
 															Node* node;
@@ -434,6 +443,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 			|	Call									{	$$ = $1; }
 			|	NUM										{	
 															$$ = $1;
+															$$->place = makeExp($$->id);
 														}
 			|	NUM B									{	
 															int val = $1->intVal;
@@ -442,23 +452,37 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorByteTooLarge(yylineno, $1->id);
 																exit(0);
 															}
-															$$ = new Node(OUR_BYTE,val); }
-			|	STRING									{	$$ = new Node(OUR_STRING); }
-			|	TRUE									{	$$ = new Node(OUR_BOOL); }
-			|	FALSE									{	$$ = new Node(OUR_BOOL); }
-			|	Exp	AND	Exp								{	if(!($1->isBool() && $3->isBool()))
-															{
-																errorMismatch(yylineno);
-																exit(0);
-															}
-															$$ = new Node(OUR_BOOL);
+															$$ = new Node(OUR_BYTE,val); 
+															$$->place = makeExp($$->id); 
 														}
-			|	Exp	OR Exp								{	if(!($1->isBool() && $3->isBool()))
+			|	STRING									{	$$ = new Node(OUR_STRING); }
+			|	TRUE									{	$$ = new Node(OUR_BOOL); 
+															$$->falseList = new vector<int>();
+															$$->trueList = new vector<int>(MAKE_LIST(EMIT("b ")));
+														}
+			|	FALSE									{	$$ = new Node(OUR_BOOL); 
+															$$->trueList = new vector<int>();
+															$$->falseList = new vector<int>(MAKE_LIST(EMIT("b ")));
+														}
+			|	Exp	AND M	Exp								{	if(!($1->isBool() && $4->isBool()))
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
 															$$ = new Node(OUR_BOOL);
+															BACKPATCH(*($1->trueList), $3->nextLabel);
+															$$->trueList = new vector<int>(*($4->trueList));
+															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($4->falseList)));
+														}
+			|	Exp	OR M Exp								{	if(!($1->isBool() && $4->isBool()))
+															{
+																errorMismatch(yylineno);
+																exit(0);
+															}
+															$$ = new Node(OUR_BOOL);
+															BACKPATCH(*($1->falseList), $3->nextLabel);
+															$$->trueList = new vector<int>(MERGE_LISTS(*($1->trueList), *($4->trueList)));
+															$$->falseList = new vector<int>(*($4->falseList));
 														}
 			|	Exp	RELOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -466,14 +490,25 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																exit(0);
 															}
 															$$ = new Node(OUR_BOOL);
+															makeRelOpExp($2->id, $1->place, $3->place, &($$->trueList), &($$->falseList));
 														}
 			|	NOT	Exp									{	if(!($2)->isBool())
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
-															$$ = new Node(OUR_BOOL); }
+															$$ = new Node(OUR_BOOL); 
+															$$->trueList = $1->falseList;
+															$$->falseList = $1->trueList;
+														}
 			;
+
+M			: {
+				$$->nextLabel = NEXT_LABEL;
+			};
+N			: {
+				$$->codeLineNum = EMIT("b ");
+			};
 
 
 %%
