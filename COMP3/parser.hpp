@@ -56,6 +56,8 @@ public:
 
 	vector<Node*> expList;
 	vector<Node*> frmlList;
+	vector<int> trueList;
+	vector<int> falseList;
 
 	Node() {}
 	Node(string id, Type_enum type) {

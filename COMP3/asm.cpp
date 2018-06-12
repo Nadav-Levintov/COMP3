@@ -1,10 +1,14 @@
 #include "asm.hpp"
+#include <sstream>
 
-#define EMIT(str) CodeBuffer::instance().emit(str + ";")
+#define EMIT(str) CodeBuffer::instance().emit(str)
+#define EMITDATA(str) CodeBuffer::instance().emitData(str)
+#define EMITFP EMIT("subu $fp, $sp, 4")
 #define REG_TO_STR(reg) RegPool::regToString(reg)
 #define REG_FREE(r) RegPool::freeReg(r)
 #define EMIT_OP(op,r1,r2) EMIT(op + REG_TO_STR(r1) + " ,"+ REG_TO_STR(r1)+" ," + REG_TO_STR(r2))
 #define MFLO(r) EMIT(string("mflo ") + REG_TO_STR(r1))
+#define MAKE_LIST(n) CodeBuffer::makelist(n)
 
 
 Reg makeExp(string val)
@@ -51,21 +55,83 @@ Reg makeBinOpExpDiv(Reg r1, Reg r2) {
 }
 
 
-Reg makeBinOpExp(string val, Reg r1, Reg r2)
+Reg makeBinOpExp(string op, Reg r1, Reg r2)
 {
-	if (val == "+")
+	if (op == "+")
 		return makeBinOpExpAdd(r1, r2);
-
-	if (val == "-")
+	else if (op == "-")
 		return makeBinOpExpSub(r1, r2);
-
-	if (val == "*")
+	else if (op == "*")
 		return makeBinOpExpMul(r1, r2);
-
-	if (val == "/")
+	else if (op == "/")
 		return makeBinOpExpDiv(r1, r2);
 
 	return MAX_REG;
+}
 
+void makeRelOpExp(string op, Reg r1, Reg r2, vector<int>** trueList, vector<int>** falseList)
+{
+	string asmOp;
+	if (op == "==")
+		makeRelOpExpCode("beq ",r1, r2, trueList, falseList);
+	else if (op == "!=")
+		makeRelOpExpCode("bne ", r1, r2, trueList, falseList);
+	else if (op == "<")
+		makeRelOpExpCode("blt ", r1, r2, trueList, falseList);
+	else if (op == ">")
+		makeRelOpExpCode("bgt ", r1, r2, trueList, falseList);
+	else if (op == "<=")
+		makeRelOpExpCode("ble ", r1, r2, trueList, falseList);
+	else if (op == ">=")
+		makeRelOpExpCode("bge ", r1, r2, trueList, falseList);
+	else
+		assert(0);
+}
+
+void makeRelOpExpCode(string op, Reg r1, Reg r2, vector<int>** trueList, vector<int>** falseList)
+{
+	int trueQuad, falseQuad;
+
+	trueQuad = EMIT(op + REG_TO_STR(r1) + " ," + REG_TO_STR(r2) + " , ");
+	falseQuad = EMIT("b ");
+	*trueList = new vector<int>(MAKE_LIST(trueQuad));
+	*falseList = new vector<int>(MAKE_LIST(falseQuad));
+
+	REG_FREE(r1);
+	REG_FREE(r2);
+}
+
+void copyRetAddrToStack(int numOfArgs)
+{
+	int stackIndex = numOfArgs * REG_SIZE;
+	ostringstream ostr;
+	ostr << stackIndex;
+	EMIT("sw $ra , " + ostr.str() + "($sp)");
+}
+
+void createDivByZeroErrFunc() {
+	EMITDATA("errmsg: .asciiz \"Error division by zero\\n\"");
+	EMIT("divByZeroErr:");
+	EMIT("li $v0,4");
+	EMIT("la $a0,errmsg");
+	EMIT("syscall");
+	EMIT("li $v0,10");
+	EMIT("syscall");
+}
+
+void createPrintFunc() {
+	EMIT("print:");
+	EMIT("lw $a0,0($sp)");
+	EMIT("li $v0,4");
+	EMIT("syscall");
+	EMIT("jr $ra");
+}
+
+void createPrintiFunc() {
+	EMIT("printi:");
+	EMIT("lw $a0,0($sp)");
+	EMIT("li $v0,1");
+	EMIT("syscall");
+	EMIT("jr $ra");
 }
 
