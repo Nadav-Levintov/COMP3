@@ -6,6 +6,7 @@
 #include <vector>
 #include <stack>
 #include <climits>
+#include "regs.h"
 
 using namespace std;
 using namespace output;
@@ -51,6 +52,7 @@ public:
 	int intVal;
 	int arraySize;
 	bool isArray;
+	Reg place;
 
 	vector<Node*> expList;
 	vector<Node*> frmlList;

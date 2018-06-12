@@ -52,8 +52,14 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 "["								return LBRACK;
 "]"								return RBRACK;
 "="								return ASSIGN;
-"=="|"!="|"<"|">"|"<="|">="		return RELOP;
-"+"|"-"|"*"|"/"					return BINOP;
+"=="|"!="|"<"|">"|"<="|">="		{
+									yylval = new Node(yytext);
+									return RELOP;
+								}
+"+"|"-"|"*"|"/"					{
+									yylval = new Node(yytext);
+									return BINOP;
+								}
 {letter}{digitletter}*			{
 									yylval = new Node(yytext);
 									return ID;
@@ -71,3 +77,8 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 .								output::errorLex(yylineno); exit(0);
 
 %%
+
+void save_string_value()
+{
+
+}
