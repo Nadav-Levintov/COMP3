@@ -361,6 +361,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															EMIT("jr $ra");
 														}
 			|	RETURN Exp SC							{
 															Type_enum scopeRetType = (tableStack.top())->get_scope_type();
@@ -369,6 +370,9 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															EMIT("move $v0, " + REG_TO_STR($2->place));
+															REG_FREE($2->place);
+															EMIT("jr $ra");
 														}
 			| 	IF Mark1 Statement Mark2 ELSE Mark3 Statement Mark2		%prec ELSE
 			| 	IF Mark1 Statement Mark2								%prec IF	
@@ -624,10 +628,27 @@ void close_scope() {
 	/*print*/
 	endScope();
 	tableStack.top()->print_scope();
-
+	VarTable* varTable = static_cast<VarTable*>(tableStack.top());
 	tableStack.pop();
 	offsetStack.pop();
 
+	int numOfCellsToFree = 0;
+	vector<VarTableEntry*> current_table_rows = varTable->rows;
+	for (int i = 0; i< current_table_rows.size(); i++)
+	{
+		if (current_table_rows[i]->node->isArray)
+		{
+			numOfCellsToFree += current_table_rows[i]->node->arraySize;
+		}
+		else
+		{
+			numOfCellsToFree++;
+		}
+	}
+	ostringstream ostr;
+	numOfCellsToFree *= 4;
+	ostr << numOfCellsToFree;
+	EMIT("add $sp, $sp, " + ostr.str());
 }
 
 void make_table()
