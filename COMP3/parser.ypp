@@ -197,8 +197,13 @@ FormalsDecl:	Type ID									{ $$ = new Node($2->id, $1->type);}
 														}
 			;
 
-Statements	:	Statement
-			|	Statements Statement
+Statements	:	Statement								{
+															$$ = $1;
+														}
+			|	Statements Statement					{
+															$$ = new Node();
+															$$->breaksList = new vector<int>(MERGE_LISTS(*($1->breaksList), *($2->breaksList)));
+														}
 			;
 
 Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
@@ -218,6 +223,8 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
 															EMIT("sw " + REG_TO_STR(tempReg) + ", ($sp)");
 															REG_FREE(tempReg);
+
+															$$ = $3;
 															
 														}
 			|	Type ID ASSIGN Exp SC					{	
@@ -374,26 +381,36 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															REG_FREE($2->place);
 															EMIT("jr $ra");
 														}
-			| 	IF Mark1 Statement Mark2 ELSE Mark3 Statement Mark2		%prec ELSE
-			| 	IF Mark1 Statement Mark2								%prec IF	
-			|	WHILE LPAREN Exp RPAREN{
-															if (!$3->isBool())
+			| 	IF Mark1 Statement Mark2 ELSE N Mark3 Statement Mark2		%prec ELSE
+			| 	IF Mark1 Statement Mark2									%prec IF	
+			|	WHILE LPAREN M Exp RPAREN               {
+															if (!$4->isBool())
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
 															open_new_scope(true);
-														} Statement Mark2
+															$$ = new Node();
+															$$->breaksList = new vector<int>();
+														} M Statement Mark2 N M {
+															vector<int> tmpList;
+															tmpList.push_back($9->codeLineNum);
+															BACKPATCH(*($7->breaksList),$10->nextLabel);
+															BACKPATCH(tmpList, $3->nextLabel);
+															BACKPATCH(*($4->trueList), $6->nextLabel);
+															BACKPATCH(*($4->falseList), $10->nextLabel);
+														}
 			|	BREAK SC								{ 
 															if(!is_break_scope() )
 															{
 																errorUnexpectedBreak(yylineno);
 																exit(0);
 															}
+														$$->breaksList = new vector<int>(MAKE_LIST(EMIT("b ")));
 														}
 			;
 
-Mark1		:		LPAREN Exp RPAREN					{
+Mark1		:		LPAREN M Exp RPAREN					{
 															if (!$2->isBool())
 															{
 																errorMismatch(yylineno);
@@ -406,7 +423,7 @@ Mark2		:										{
 														close_scope();
 													};
 
-Mark3		:										{
+Mark3		:		M								{
 														open_new_scope(false);
 													};
 
@@ -582,9 +599,11 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 			;
 
 M			: {
+				$$ = new Node();
 				$$->nextLabel = NEXT_LABEL;
 			};
 N			: {
+				$$ = new Node();
 				$$->codeLineNum = EMIT("b ");
 			};
 

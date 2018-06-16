@@ -62,6 +62,7 @@ public:
 	vector<Node*> frmlList;
 	vector<int> *trueList;
 	vector<int> *falseList;
+	vector<int> *breaksList;
 
 	Node() {}
 	Node(string id, Type_enum type) {
