@@ -6,6 +6,7 @@
 	#include "output.hpp"
 	#include "parser.hpp"
 	#include "asm.hpp"
+	#include <sstream>
 
 
 	using namespace std;
@@ -212,6 +213,12 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
+															EMIT("subu $sp, $sp, 4");
+															Reg tempReg = REG_GET_AVAIL;
+															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
+															EMIT("sw " + REG_TO_STR(tempReg) + ", ($sp)");
+															REG_FREE(tempReg);
+															
 														}
 			|	Type ID ASSIGN Exp SC					{	
 															Node* node;
@@ -229,6 +236,9 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
+															EMIT("subu $sp, $sp, 4");
+															EMIT("sw " + REG_TO_STR($4->place) + ", ($sp)");
+															REG_FREE($4->place);
 														}
 			|	Type ID LBRACK NUM RBRACK SC			{	
 															Node* node;
@@ -246,6 +256,17 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() += ($4)->intVal;
+															ostringstream ostr;
+															int arrayTopInStack = 4 * $4->intVal;
+															ostr << arrayTopInStack;
+															EMIT("subu $sp, $sp, " + arrayTopInStack);
+															Reg tempReg = REG_GET_AVAIL;
+															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
+															for (int i = 0; i < $4->intVal; i++) {
+																ostr << 4*i;
+																EMIT("sw " + REG_TO_STR(tempReg) + ", "+ostr.str()+"($sp)");
+															}
+															REG_FREE(tempReg);
 														}
 			| Type ID LBRACK NUM B RBRACK SC			{	
 															Node* node;
@@ -268,6 +289,17 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() += ($4)->intVal;
+															ostringstream ostr;
+															int arrayTopInStack = 4 * $4->intVal;
+															ostr << arrayTopInStack;
+															EMIT("subu $sp, $sp, " + ostr.str());
+															Reg tempReg = REG_GET_AVAIL;
+															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
+															for (int i = 0; i < $4->intVal; i++) {
+																ostr << 4 * i;
+																EMIT("sw " + REG_TO_STR(tempReg) + ", " + ostr.str() + "($sp)");
+															}
+															REG_FREE(tempReg);
 														}
 			| ID ASSIGN Exp SC							{
 															Node* node;
@@ -281,6 +313,26 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															ostringstream ostr;
+															ostringstream ostr2;
+															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															ostr << varPosInStack;
+															if(!node->isArray){
+																EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
+															}
+															else {
+																Reg tempReg = REG_GET_AVAIL;
+																for (int i = 0; i < node->arraySize; i++)
+																{
+																	ostr2 << (i * 4);
+																	ostr << varPosInStack + (i * 4);
+																	EMIT("lw " + REG_TO_STR(tempReg) + ", "+ ostr2.str()+"(" + REG_TO_STR($3->place) + ")");
+																	EMIT("sw " + REG_TO_STR(tempReg) + ", " + ostr.str() + "($fp)");
+																}
+																REG_FREE(tempReg);
+															}
+															REG_FREE($3->place);
+
 														}
 			|	ID LBRACK Exp RBRACK ASSIGN Exp SC		{
 															Node* node;
@@ -294,6 +346,12 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															ostringstream ostr;
+															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															varPosInStack += 4 * ($3->intVal);
+															ostr << varPosInStack;
+															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
+															REG_FREE($6->place);
 														}
 			|	Call SC
 			|	RETURN SC								{
@@ -406,6 +464,11 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															}
 															$$ = new Node(node);
 															$$->isArray = false;
+															ostringstream ostr;
+															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															varPosInStack += 4 * ($3->intVal);
+															ostr << varPosInStack;
+															EMIT("lw " + REG_TO_STR(REG_GET_AVAIL) + ", " + ostr.str() + "($fp)");
 														}
 			|	Exp BINOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -439,6 +502,17 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																	errorUndef(yylineno, $1->id);
 																	exit(0);
 																}
+															ostringstream ostr;
+															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															ostr << varPosInStack;
+															$$->place = REG_GET_AVAIL;
+															if(!node->isArray){
+																EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
+															}
+															else {
+																EMIT("li " + REG_TO_STR($$->place) + ", "+ostr.str());
+																EMIT("add " + REG_TO_STR($$->place) + ", " + REG_TO_STR($$->place) + ",$fp");
+															}
 														}
 			|	Call									{	$$ = $1; }
 			|	NUM										{	
@@ -630,7 +704,6 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 			else
 				types.push_back(get_type_string(func->nodeList[i]->type));
 		}
-		//cout << "*******************1" << endl;
 		errorPrototypeMismatch(yylineno, id, types);
 		exit(0);
 	}
@@ -647,11 +720,6 @@ bool check_func_exists(string& id, Node* expListNode, Type_enum **retType)
 					else
 						types.push_back(get_type_string(func->nodeList[i]->type));
 				}
-				//cout << "func->nodeList[j] "	  << func->nodeList[j]->type          <<endl;
-				//cout << "func->nodeList[j] " << func->nodeList[j]->isArray << endl;
-				//cout << "expListNode->expList[j]" << expListNode->expList[j]->type << endl;
-				//cout << "expListNode->expList[j]" << expListNode->expList[j]->isArray <<endl;
-				//cout << "*******************2" << endl;
 				errorPrototypeMismatch(yylineno, id, types);
 				exit(0);
 			}

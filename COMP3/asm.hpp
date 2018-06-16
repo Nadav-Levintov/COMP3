@@ -22,6 +22,7 @@ using namespace output;
 #define NEXT_LABEL CodeBuffer::instance().genLabel()
 #define BACKPATCH(address_list,loc) CodeBuffer::instance().bpatch(address_list,loc)
 #define MERGE_LISTS(l1,l2) CodeBuffer::merge(l1,l2)
+#define REG_GET_AVAIL RegPool::getAvailReg()
 
 Reg makeExp(string val);
 Reg makeBinOpExp(string val, Reg r1, Reg r2);

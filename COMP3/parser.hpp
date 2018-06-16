@@ -199,6 +199,7 @@ public:
 	}
 
 	virtual void print_scope() = 0;
+	virtual int getVarPosByID(string id) = 0;
 
 	virtual ~Table() {}
 };
@@ -245,6 +246,17 @@ public:
 			printID(rows[i]->node->id, rows[i]->offset, t);
 		}
 	}
+
+	virtual int getVarPosByID(string id)
+	{
+		for (int i = 0; i < this->rows.size(); i++)
+		{
+			if (rows[i]->node->id == id)
+			{
+				return rows[i]->offset;
+			}
+		}
+	}
 };
 
 class FuncTable : public Table
@@ -278,6 +290,9 @@ public:
 
 			types.clear();
 		}
+	}
+	virtual int getVarPosByID(string id) {
+		return 0;
 	}
 
 };
