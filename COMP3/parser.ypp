@@ -381,8 +381,20 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															REG_FREE($2->place);
 															EMIT("jr $ra");
 														}
-			| 	IF Mark1 Statement Mark2 ELSE N Mark3 Statement Mark2		%prec ELSE
-			| 	IF Mark1 Statement Mark2									%prec IF	
+			| 	IF Mark1 M Statement Mark2 M ELSE N Mark3 M Statement M Mark2  {
+															$$ = new Node();
+															$$->breaksList = new vector<int>(MERGE_LISTS(*($3->breaksList), *($9->breaksList)));
+															BACKPATCH(*($2->trueList), $3->nextLabel);
+															BACKPATCH(*($2->falseList), $10->nextLabel);
+															vector<int> tmpList;
+															tmpList.push_back($8->codeLineNum);
+															BACKPATCH(tmpList, $12->nextLabel);
+															} %prec ELSE
+			| 	IF  Mark1 M Statement Mark2	M						  	{
+															$$ = $3;
+															BACKPATCH(*($2->trueList), $3->nextLabel);
+															BACKPATCH(*($2->falseList), $6->nextLabel);
+															} %prec IF
 			|	WHILE LPAREN M Exp RPAREN               {
 															if (!$4->isBool())
 															{
@@ -410,12 +422,13 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 														}
 			;
 
-Mark1		:		LPAREN M Exp RPAREN					{
+Mark1		:		LPAREN Exp RPAREN					{
 															if (!$2->isBool())
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															$$ = $2;
 															open_new_scope(false);
 														} ;
 
@@ -423,7 +436,7 @@ Mark2		:										{
 														close_scope();
 													};
 
-Mark3		:		M								{
+Mark3		:										{
 														open_new_scope(false);
 													};
 
