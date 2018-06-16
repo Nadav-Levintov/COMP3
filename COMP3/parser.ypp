@@ -20,6 +20,7 @@
 	stack<Table*> tableStack;
 	FuncTable* funcTable;
 	stack<int> offsetStack;
+	static int stringCounter = 0;
 
 	void make_table();
 	bool is_break_scope();
@@ -360,7 +361,10 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
 															REG_FREE($6->place);
 														}
-			|	Call SC
+			|	Call SC									{	$$ = $1;
+															$$->place = REG_GET_AVAIL;
+															EMIT("move " + REG_TO_STR($$->place) + ", $v0");
+														}
 			|	RETURN SC								{
 															Type_enum scopeRetType = (tableStack.top())->get_scope_type();
 															if (scopeRetType != OUR_VOID)
@@ -368,6 +372,26 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+
+															VarTable* varTable = static_cast<VarTable*>(tableStack.top());
+
+															int numOfCellsToFree = 0;
+															vector<VarTableEntry*> current_table_rows = varTable->rows;
+															for (int i = 0; i< current_table_rows.size(); i++)
+															{
+																if (current_table_rows[i]->node->isArray)
+																{
+																	numOfCellsToFree += current_table_rows[i]->node->arraySize;
+																}
+																else
+																{
+																	numOfCellsToFree++;
+																}
+															}
+															ostringstream ostr;
+															numOfCellsToFree *= 4;
+															ostr << numOfCellsToFree;
+															EMIT("add $sp, $sp, " + ostr.str());
 															EMIT("jr $ra");
 														}
 			|	RETURN Exp SC							{
@@ -377,6 +401,26 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+
+															VarTable* varTable = static_cast<VarTable*>(tableStack.top());
+
+															int numOfCellsToFree = 0;
+															vector<VarTableEntry*> current_table_rows = varTable->rows;
+															for (int i = 0; i< current_table_rows.size(); i++)
+															{
+																if (current_table_rows[i]->node->isArray)
+																{
+																	numOfCellsToFree += current_table_rows[i]->node->arraySize;
+																}
+																else
+																{
+																	numOfCellsToFree++;
+																}
+															}
+															ostringstream ostr;
+															numOfCellsToFree *= 4;
+															ostr << numOfCellsToFree;
+															EMIT("add $sp, $sp, " + ostr.str());
 															EMIT("move $v0, " + REG_TO_STR($2->place));
 															REG_FREE($2->place);
 															EMIT("jr $ra");
@@ -441,7 +485,7 @@ Mark3		:										{
 													};
 
 
-Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
+Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 															if (check_func_exists($1->id,$3, &retType))
 															{
 																$$->type = *retType;
@@ -451,8 +495,24 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 																errorUndefFunc(yylineno,$1->id);
 																exit(0);
 															}
+															SAVE_ALL_REGS;
+															EMIT("subu $sp ,&sp ,4");
+															EMIT("sw $fp, 0(&sp)");
+															EMIT("subu $sp ,&sp ,4");
+															EMIT("sw $ra, 0(&sp)");
+															for (int i = 0; i < $3->explist->size(); i++)
+															{
+
+																EMIT("subu $sp ,&sp ,4");
+															}
+															EMIT("jal " + $1->id);
+															EMIT("lw $fp, 0(&sp)");
+															EMIT("addu $sp ,&sp ,4");
+															EMIT("lw $ra, 0(&sp)");
+															EMIT("addu $sp ,&sp ,4");
+															LOAD_ALL_REGS;
 														}
-			|	ID LPAREN RPAREN						{	Type_enum *retType;
+			|	ID LPAREN RPAREN M						{	Type_enum *retType;
 															if(check_func_exists($1->id,new Node(), &retType))
 															{
 																$$->type = *retType;
@@ -462,6 +522,18 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 																errorUndefFunc(yylineno, $1->id);
 																exit(0);
 															}
+
+															SAVE_ALL_REGS;
+															EMIT("subu $sp ,&sp ,4");
+															EMIT("sw $fp, 0(&sp)");
+															EMIT("subu $sp ,&sp ,4");
+															EMIT("sw $ra, 0(&sp)");
+															EMIT("jal " + $1->id);
+															EMIT("lw $fp, 0(&sp)");
+															EMIT("addu $sp ,&sp ,4");
+															EMIT("lw $ra, 0(&sp)");
+															EMIT("addu $sp ,&sp ,4");
+															LOAD_ALL_REGS;
 														}
 			;
 
@@ -498,11 +570,12 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															}
 															$$ = new Node(node);
 															$$->isArray = false;
+															$$->place = REG_GET_AVAIL;
 															ostringstream ostr;
 															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
 															varPosInStack += 4 * ($3->intVal);
 															ostr << varPosInStack;
-															EMIT("lw " + REG_TO_STR(REG_GET_AVAIL) + ", " + ostr.str() + "($fp)");
+															EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
 														}
 			|	Exp BINOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -548,7 +621,10 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																EMIT("add " + REG_TO_STR($$->place) + ", " + REG_TO_STR($$->place) + ",$fp");
 															}
 														}
-			|	Call									{	$$ = $1; }
+			|	Call									{	$$ = $1;
+															$$->place = REG_GET_AVAIL;
+															EMIT("move " + REG_TO_STR($$->place) + ", $v0");
+														}
 			|	NUM										{	
 															$$ = $1;
 															$$->place = makeExp($$->id);
@@ -563,14 +639,29 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$ = new Node(OUR_BYTE,val); 
 															$$->place = makeExp($$->id); 
 														}
-			|	STRING									{	$$ = new Node(OUR_STRING); }
+			|	STRING									{	$$ = new Node(OUR_STRING); 
+															string label = NEXT_LABEL;
+															EMITDATA(label + ": .asciiz " + $1->id);
+															$$->place = REG_GET_AVAIL;
+															EMIT("la " +REG_TO_STR($$_>place) + ", " + label); 
+														}
 			|	TRUE									{	$$ = new Node(OUR_BOOL); 
 															$$->falseList = new vector<int>();
 															$$->trueList = new vector<int>(MAKE_LIST(EMIT("b ")));
+															/* TODO: should bools hace place?
+															how do we pass bools to functions call?
+															$$->place = REG_GET_AVAIL;
+															EMIT("sw " + REG_TO_STR($$->place) + ", 1");
+															*/
 														}
 			|	FALSE									{	$$ = new Node(OUR_BOOL); 
 															$$->trueList = new vector<int>();
 															$$->falseList = new vector<int>(MAKE_LIST(EMIT("b ")));
+															/* TODO: should bools hace place?
+															how do we pass bools to functions call?
+															$$->place = REG_GET_AVAIL;
+															EMIT("sw " + REG_TO_STR($$->place) + ", 0");
+															*/
 														}
 			|	Exp	AND M	Exp								{	if(!($1->isBool() && $4->isBool()))
 															{
@@ -581,6 +672,11 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															BACKPATCH(*($1->trueList), $3->nextLabel);
 															$$->trueList = new vector<int>(*($4->trueList));
 															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($4->falseList)));
+															/* TODO: should bools hace place?
+															how do we pass bools to functions call?
+															$$->place = $1->place;
+															EMIT("and " + REG_TO_STR($$->place) + ", " + REG_TO_STR($1->place) + ", " + REG_TO_STR($4->place)); 
+															*/
 														}
 			|	Exp	OR M Exp								{	if(!($1->isBool() && $4->isBool()))
 															{
@@ -611,14 +707,14 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 														}
 			;
 
-M			: {
-				$$ = new Node();
-				$$->nextLabel = NEXT_LABEL;
-			};
-N			: {
-				$$ = new Node();
-				$$->codeLineNum = EMIT("b ");
-			};
+M			:											{
+															$$ = new Node();
+															$$->nextLabel = NEXT_LABEL;
+														};
+N			:											{
+															$$ = new Node();
+															$$->codeLineNum = EMIT("b ");
+														};
 
 
 %%
@@ -629,6 +725,9 @@ int main()
 #ifdef DEBUG
 	yydebug = 1;
 #endif
+	createDivByZeroErrFunc();
+	createPrintFunc();
+	createPrintiFunc();
 	yyparse();
 }
 
