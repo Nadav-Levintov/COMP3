@@ -4,7 +4,7 @@
 using namespace std;
 using namespace output;
 
-string regs_name[] = { "t0","t1","t2","t3","t4","t5","t6","t7","t8","t9","s0","s1","s2","s3","s4","s5","s6","s7" };
+string regs_name[] = { "$t0","$t1","$t2","$t3","$t4","$t5","$t6","$t7","$t8","$t9","$s0","$s1","$s2","$s3","$s4","$s5","$s6","$s7" };
 
 RegPool& RegPool::getPoolInstance() {
 	static RegPool p;
@@ -36,13 +36,13 @@ Reg RegPool::getAvailReg()
 
 void RegPool::regsSaveAll()
 {
-	CodeBuffer::instance().emit("subu $sp ,&sp ,72");
+	CodeBuffer::instance().emit("$subu $sp ,&sp ,72");
 	
 	for (int i = 0; i < MAX_REG; i++)
 	{
 		ostringstream s;
 		s << i * REG_SIZE;
-		CodeBuffer::instance().emit("sw " + RegPool::getPoolInstance().regToString(Reg(i)) + "," + s.str() + "(&sp)");
+		CodeBuffer::instance().emit("$sw " + RegPool::getPoolInstance().regToString(Reg(i)) + "," + s.str() + "(&sp)");
 	}
 }
 

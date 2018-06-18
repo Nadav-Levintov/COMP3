@@ -32,7 +32,11 @@
 	bool check_func_exists_name(string id);
 	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize);
 	bool isAssignable(Node* assignedTo, Node* assigned);
-
+	void clear_ostr(ostringstream *ostr)
+	{
+		ostr->str("");
+		ostr->clear();
+	}
 
 %}
 
@@ -102,8 +106,8 @@ S			:	Program EOF1 {
 															}
 
 															/*print*/
-															endScope();
-															tableStack.top()->print_scope();
+															//endScope();
+															//tableStack.top()->print_scope();
 															tableStack.pop();
 															offsetStack.pop();
 														}
@@ -151,8 +155,8 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 																	
 																}
 																dynamic_cast<VarTable*>(tableStack.top())->push(var_entry);
-
 															}
+															EMIT($2->id + ":");
 														} LBRACE Statements RBRACE {
 															close_scope();
 														}
@@ -284,10 +288,11 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															ostringstream ostr;
 															int arrayTopInStack = 4 * $4->intVal;
 															ostr << arrayTopInStack;
-															EMIT("subu $sp, $sp, " + arrayTopInStack);
+															EMIT("subu $sp, $sp, " + ostr.str());
 															Reg tempReg = REG_GET_AVAIL;
 															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
 															for (int i = 0; i < $4->intVal; i++) {
+																clear_ostr(&ostr);
 																ostr << 4*i;
 																EMIT("sw " + REG_TO_STR(tempReg) + ", "+ostr.str()+"($sp)");
 															}
@@ -321,6 +326,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															Reg tempReg = REG_GET_AVAIL;
 															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
 															for (int i = 0; i < $4->intVal; i++) {
+																clear_ostr(&ostr);
 																ostr << 4 * i;
 																EMIT("sw " + REG_TO_STR(tempReg) + ", " + ostr.str() + "($sp)");
 															}
@@ -366,6 +372,8 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																Reg tempReg = REG_GET_AVAIL;
 																for (int i = 0; i < node->arraySize; i++)
 																{
+																	clear_ostr(&ostr);
+																	clear_ostr(&ostr2);
 																	ostr2 << (i * 4);
 																	ostr << varPosInStack + (i * 4);
 																	EMIT("lw " + REG_TO_STR(tempReg) + ", "+ ostr2.str()+"(" + REG_TO_STR($3->place) + ")");
