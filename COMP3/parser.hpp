@@ -26,6 +26,12 @@ typedef enum type_e {
 	TYPE_ERROR
 }Type_enum;
 
+typedef enum bool_e {
+	BOOL_FALSE,
+	BOOL_TRUE,
+	BOOL_RUNTIME,
+}Bool_val;
+
 static string get_type_string(Type_enum t)
 {
 	switch (t)
@@ -56,6 +62,7 @@ public:
 	Reg place;
 	string nextLabel;
 	int codeLineNum;
+	Bool_val boolVal;
 
 
 	vector<Node*> expList;
@@ -64,14 +71,23 @@ public:
 	vector<int> *falseList;
 	vector<int> *breaksList;
 
-	Node() {}
+	Node() {
+		this->boolVal = BOOL_RUNTIME;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
+	}
 	Node(string id, Type_enum type) {
 		this->id = id;
 		this->type = type;
 
+		this->boolVal = BOOL_RUNTIME;
 		this->intVal = 0;
 		this->arraySize = 0;
 		this->isArray = false;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
 	}
 	Node(string id, Type_enum type, int arraySize) {
 		this->id = id;
@@ -79,7 +95,11 @@ public:
 		this->isArray = true;
 		this->type = type;
 
+		this->boolVal = BOOL_RUNTIME;
 		this->intVal = 0;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
 	}
 	Node(string id) {
 		this->id = id;
@@ -88,30 +108,46 @@ public:
 		this->intVal = 0;
 		this->arraySize = 0;
 		this->isArray = false;
+		this->boolVal = BOOL_RUNTIME;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
 	}
 	Node(int intVal, string id) {
 		this->intVal = intVal;
 		this->type = OUR_INT;
 
+		this->boolVal = BOOL_RUNTIME;
 		this->id = id;
 		this->arraySize = 0;
 		this->isArray = false;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
 	}
 	Node(Type_enum type) {
 		this->type = type;
 
+		this->boolVal = BOOL_RUNTIME;
 		this->id = "";
 		this->intVal = 0;
 		this->arraySize = 0;
 		this->isArray = false;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
 	}
 	Node(Type_enum type, int intVal) {
 		this->type = type;
 		this->intVal = intVal;
 
+		this->boolVal = BOOL_RUNTIME;
 		this->id = "";
 		this->arraySize = 0;
 		this->isArray = false;
+		this->trueList = new vector<int>();
+		this->falseList = new vector<int>();
+		this->breaksList = new vector<int>();
 	}
 	Node(Node *node) {
 		this->type = node->type;
@@ -119,6 +155,10 @@ public:
 		this->id = node->id;
 		this->arraySize = node->arraySize;
 		this->isArray = node->isArray;
+		this->boolVal = node->boolVal;
+		this->trueList = node->trueList;
+		this->falseList = node->falseList;
+		this->breaksList = node->breaksList;
 	}
 
 	bool operator<(const Node& a)

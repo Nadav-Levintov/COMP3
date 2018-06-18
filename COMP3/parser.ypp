@@ -245,7 +245,24 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
 															EMIT("subu $sp, $sp, 4");
-															EMIT("sw " + REG_TO_STR($4->place) + ", ($sp)");
+															if ($4->type == OUR_BOOL && $4->boolVal == BOOL_TRUE)
+															{
+																Reg temp = REG_GET_AVAIL;
+																EMIT("li " + REG_TO_STR(temp) + ",1");
+																EMIT("sw " + REG_TO_STR(temp) + ", ($sp)");
+																REG_FREE(temp);
+															}
+															else if ($4->type == OUR_BOOL && $4->boolVal == BOOL_FALSE)
+															{
+																Reg temp = REG_GET_AVAIL;
+																EMIT("li " + REG_TO_STR(temp) + ",0");
+																EMIT("sw " + REG_TO_STR(temp) + ", ($sp)");
+																REG_FREE(temp);
+															}
+															else
+															{
+																EMIT("sw " + REG_TO_STR($4->place) + ", ($sp)");
+															}
 															REG_FREE($4->place);
 														}
 			|	Type ID LBRACK NUM RBRACK SC			{	
@@ -326,7 +343,24 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
 															ostr << varPosInStack;
 															if(!node->isArray){
-																EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
+																if ($3->type == OUR_BOOL && $3->boolVal == BOOL_TRUE)
+																{
+																	Reg temp = REG_GET_AVAIL;
+																	EMIT("li " + REG_TO_STR(temp) + ",1");
+																	EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
+																	REG_FREE(temp);
+																}
+																else if ($3->type == OUR_BOOL && $3->boolVal == BOOL_FALSE)
+																{
+																	Reg temp = REG_GET_AVAIL;
+																	EMIT("li " + REG_TO_STR(temp) + ",0");
+																	EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
+																	REG_FREE(temp);
+																}
+																else
+																{
+																	EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
+																}
 															}
 															else {
 																Reg tempReg = REG_GET_AVAIL;
@@ -358,8 +392,25 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
 															varPosInStack += 4 * ($3->intVal);
 															ostr << varPosInStack;
-															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
-															REG_FREE($6->place);
+															if ($6->type == OUR_BOOL && $6->boolVal == BOOL_TRUE)
+															{
+																Reg temp = REG_GET_AVAIL;
+																EMIT("li " + REG_TO_STR(temp) + ",1");
+																EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
+																REG_FREE(temp);
+															}
+															else if ($6->type == OUR_BOOL && $6->boolVal == BOOL_FALSE)
+															{
+																Reg temp = REG_GET_AVAIL;
+																EMIT("li " + REG_TO_STR(temp) + ",0");
+																EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
+																REG_FREE(temp);
+															}
+															else
+															{
+																EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
+																REG_FREE($6->place);
+															}
 														}
 			|	Call SC									{	$$ = $1;
 															$$->place = REG_GET_AVAIL;
@@ -427,7 +478,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 														}
 			| 	IF Mark1 M Statement Mark2 M ELSE N Mark3 M Statement M Mark2  {
 															$$ = new Node();
-															$$->breaksList = new vector<int>(MERGE_LISTS(*($3->breaksList), *($9->breaksList)));
+															$$->breaksList = new vector<int>(MERGE_LISTS(*($4->breaksList), *($11->breaksList)));
 															BACKPATCH(*($2->trueList), $3->nextLabel);
 															BACKPATCH(*($2->falseList), $10->nextLabel);
 															vector<int> tmpList;
@@ -449,12 +500,13 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															$$ = new Node();
 															$$->breaksList = new vector<int>();
 														} M Statement Mark2 N M {
-															vector<int> tmpList;
-															tmpList.push_back($9->codeLineNum);
-															BACKPATCH(*($7->breaksList),$10->nextLabel);
-															BACKPATCH(tmpList, $3->nextLabel);
-															BACKPATCH(*($4->trueList), $6->nextLabel);
-															BACKPATCH(*($4->falseList), $10->nextLabel);
+															vector<int> *tmpList = new vector<int>();
+															tmpList->push_back($10->codeLineNum);
+															int temp = $10->codeLineNum;
+															BACKPATCH(*($8->breaksList),$11->nextLabel);
+															BACKPATCH(*tmpList, $3->nextLabel);
+															BACKPATCH(*($4->trueList), $7->nextLabel);
+															BACKPATCH(*($4->falseList), $11->nextLabel);
 														}
 			|	BREAK SC								{ 
 															if(!is_break_scope() )
@@ -476,13 +528,13 @@ Mark1		:		LPAREN Exp RPAREN					{
 															open_new_scope(false);
 														} ;
 
-Mark2		:										{
-														close_scope();
-													};
+Mark2		:											{
+															close_scope();
+														};
 
-Mark3		:										{
-														open_new_scope(false);
-													};
+Mark3		:											{
+															open_new_scope(false);
+														};
 
 
 Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
@@ -496,30 +548,50 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																exit(0);
 															}
 															SAVE_ALL_REGS;
-															EMIT("subu $sp ,&sp ,4");
-															EMIT("sw $fp, 0(&sp)");
-															EMIT("subu $sp ,&sp ,4");
-															EMIT("sw $ra, 0(&sp)");
-															for (int i = 0; i < $3->expList->size(); i++)
+															EMIT("subu $sp ,$sp ,4");
+															EMIT("sw $fp, 0($sp)");
+															EMIT("subu $sp ,$sp ,4");
+															EMIT("sw $ra, 0($sp)");
+															for (int i = 0; i < $3->expList.size(); i++)
 															{
 																if ($3->expList[i]->isArray)
 																{
 																	for (int j = 0; j < $3->expList[i]->arraySize; j++)
 																	{
-																		EMIT("subu $sp ,&sp ,4");
-																		/*TODO: push cell to stack*/
+																		EMIT("subu $sp ,$sp ,4");
+																		ostringstream ostr;
+																		ostr << j * 4;
+																		EMIT("move "+	ostr.str()+"(" + REG_TO_STR($3->expList[i]->place) + "), $sp");
 																	}
 																}
 																else {
-																	EMIT("subu $sp ,&sp ,4");
-																	/*TODO: push var to stack*/
+																	EMIT("subu $sp ,$sp ,4");
+																	if ($3->expList[i]->type == OUR_BOOL && $3->expList[i]->boolVal == BOOL_TRUE)
+																	{
+																		Reg temp = REG_GET_AVAIL;
+																		EMIT("li " + REG_TO_STR(temp) + ",1");
+																		EMIT("sw " + REG_TO_STR(temp) + ", $sp");
+																		REG_FREE(temp);
+																	}
+																	else if ($3->expList[i]->type == OUR_BOOL && $3->expList[i]->boolVal == BOOL_FALSE)
+																	{
+																		Reg temp = REG_GET_AVAIL;
+																		EMIT("li " + REG_TO_STR(temp) + ",0");
+																		EMIT("sw " + REG_TO_STR(temp) + ", $sp");
+																		REG_FREE(temp);
+																	}
+																	else
+																	{
+																		EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", $sp");
+																	}
+																	
 																}
 															}
 															EMIT("jal " + $1->id);
-															EMIT("lw $fp, 0(&sp)");
-															EMIT("addu $sp ,&sp ,4");
-															EMIT("lw $ra, 0(&sp)");
-															EMIT("addu $sp ,&sp ,4");
+															EMIT("lw $fp, 0($sp)");
+															EMIT("addu $sp ,$sp ,4");
+															EMIT("lw $ra, 0($sp)");
+															EMIT("addu $sp ,$sp ,4");
 															LOAD_ALL_REGS;
 														}
 			|	ID LPAREN RPAREN M						{	Type_enum *retType;
@@ -534,15 +606,15 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 															}
 
 															SAVE_ALL_REGS;
-															EMIT("subu $sp ,&sp ,4");
-															EMIT("sw $fp, 0(&sp)");
-															EMIT("subu $sp ,&sp ,4");
-															EMIT("sw $ra, 0(&sp)");
+															EMIT("subu $sp ,$sp ,4");
+															EMIT("sw $fp, 0($sp)");
+															EMIT("subu $sp ,$sp ,4");
+															EMIT("sw $ra, 0($sp)");
 															EMIT("jal " + $1->id);
-															EMIT("lw $fp, 0(&sp)");
-															EMIT("addu $sp ,&sp ,4");
-															EMIT("lw $ra, 0(&sp)");
-															EMIT("addu $sp ,&sp ,4");
+															EMIT("lw $fp, 0($sp)");
+															EMIT("addu $sp ,$sp ,4");
+															EMIT("lw $ra, 0($sp)");
+															EMIT("addu $sp ,$sp ,4");
 															LOAD_ALL_REGS;
 														}
 			;
@@ -653,25 +725,20 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															string label = NEXT_LABEL;
 															EMITDATA(label + ": .asciiz " + $1->id);
 															$$->place = REG_GET_AVAIL;
-															EMIT("la " +REG_TO_STR($$_>place) + ", " + label); 
+															EMIT("la " +REG_TO_STR($$->place) + ", " + label); 
 														}
 			|	TRUE									{	$$ = new Node(OUR_BOOL); 
 															$$->falseList = new vector<int>();
 															$$->trueList = new vector<int>(MAKE_LIST(EMIT("b ")));
-															/* TODO: should bools hace place?
-															how do we pass bools to functions call?
-															$$->place = REG_GET_AVAIL;
-															EMIT("sw " + REG_TO_STR($$->place) + ", 1");
-															*/
+															
+															$$->boolVal = BOOL_TRUE;
+															
 														}
 			|	FALSE									{	$$ = new Node(OUR_BOOL); 
 															$$->trueList = new vector<int>();
 															$$->falseList = new vector<int>(MAKE_LIST(EMIT("b ")));
-															/* TODO: should bools hace place?
-															how do we pass bools to functions call?
-															$$->place = REG_GET_AVAIL;
-															EMIT("sw " + REG_TO_STR($$->place) + ", 0");
-															*/
+															
+															$$->boolVal = BOOL_FALSE;
 														}
 			|	Exp	AND M	Exp								{	if(!($1->isBool() && $4->isBool()))
 															{
@@ -682,11 +749,11 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															BACKPATCH(*($1->trueList), $3->nextLabel);
 															$$->trueList = new vector<int>(*($4->trueList));
 															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($4->falseList)));
-															/* TODO: should bools hace place?
-															how do we pass bools to functions call?
-															$$->place = $1->place;
-															EMIT("and " + REG_TO_STR($$->place) + ", " + REG_TO_STR($1->place) + ", " + REG_TO_STR($4->place)); 
-															*/
+															if ($1->boolVal == BOOL_FALSE)
+															{
+																$$->boolVal = BOOL_FALSE;
+															}
+															
 														}
 			|	Exp	OR M Exp								{	if(!($1->isBool() && $4->isBool()))
 															{
@@ -697,6 +764,10 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															BACKPATCH(*($1->falseList), $3->nextLabel);
 															$$->trueList = new vector<int>(MERGE_LISTS(*($1->trueList), *($4->trueList)));
 															$$->falseList = new vector<int>(*($4->falseList));
+															if ($1->boolVal == BOOL_TRUE)
+															{
+																$$->boolVal = BOOL_TRUE;
+															}
 														}
 			|	Exp	RELOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -714,6 +785,14 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$ = new Node(OUR_BOOL); 
 															$$->trueList = $1->falseList;
 															$$->falseList = $1->trueList;
+															if ($1->boolVal == BOOL_TRUE)
+															{
+																$$->boolVal = BOOL_FALSE;
+															}
+															else if ($1->boolVal == BOOL_FALSE)
+															{
+																$$->boolVal = BOOL_TRUE;
+															}
 														}
 			;
 
@@ -739,6 +818,8 @@ int main()
 	createPrintFunc();
 	createPrintiFunc();
 	yyparse();
+	CodeBuffer::instance().printDataBuffer();
+	CodeBuffer::instance().printCodeBuffer();
 }
 
 int yyerror(const char * message)
@@ -767,8 +848,8 @@ void open_new_function_scope(Type_enum retType)
 
 void close_scope() {
 	/*print*/
-	endScope();
-	tableStack.top()->print_scope();
+	//endScope();
+	//tableStack.top()->print_scope();
 	VarTable* varTable = static_cast<VarTable*>(tableStack.top());
 	tableStack.pop();
 	offsetStack.pop();
