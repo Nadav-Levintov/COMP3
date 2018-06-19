@@ -551,7 +551,9 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																else {
 																	if ($3->expList[i]->type == OUR_BOOL)
 																	{
-																		$3->expList[i]->place = handleBoolVal($3->trueList, $3->falseList);
+																		Node * tmpn = $3;
+																		$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
+																		EMIT_COMMENT("EXPLIST");
 																	}
 																	EMIT("subu $sp ,$sp ,4");
 																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", ($sp)");
