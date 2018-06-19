@@ -65,7 +65,8 @@
 %left RBRACK
 %right ASSIGN
 %left RELOP
-%left BINOP
+%left BINOPPM
+%left BINOPMD
 %token ID
 %token NUM
 %token STRING
@@ -228,7 +229,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															EMIT("subu $sp, $sp, 4");
 															Reg tempReg = REG_GET_AVAIL;
 															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
-															EMIT("sw " + REG_TO_STR(tempReg) + ", ($sp)");
+															EMIT("sw " + REG_TO_STR(tempReg) + ", 0($sp)");
 															REG_FREE(tempReg);
 
 															$$ = $3;
@@ -250,25 +251,12 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
+															if ($4->type == OUR_BOOL)
+															{
+																$4->place = handleBoolVal($4->trueList, $4->falseList);
+															}
 															EMIT("subu $sp, $sp, 4");
-															if ($4->type == OUR_BOOL && $4->boolVal == BOOL_TRUE)
-															{
-																Reg temp = REG_GET_AVAIL;
-																EMIT("li " + REG_TO_STR(temp) + ",1");
-																EMIT("sw " + REG_TO_STR(temp) + ", ($sp)");
-																REG_FREE(temp);
-															}
-															else if ($4->type == OUR_BOOL && $4->boolVal == BOOL_FALSE)
-															{
-																Reg temp = REG_GET_AVAIL;
-																EMIT("li " + REG_TO_STR(temp) + ",0");
-																EMIT("sw " + REG_TO_STR(temp) + ", ($sp)");
-																REG_FREE(temp);
-															}
-															else
-															{
-																EMIT("sw " + REG_TO_STR($4->place) + ", ($sp)");
-															}
+															EMIT("sw " + REG_TO_STR($4->place) + ", 0($sp)");
 															REG_FREE($4->place);
 														}
 			|	Type ID LBRACK NUM RBRACK SC			{	
@@ -351,24 +339,11 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
 															ostr << varPosInStack;
 															if(!node->isArray){
-																if ($3->type == OUR_BOOL && $3->boolVal == BOOL_TRUE)
+																if ($3->type == OUR_BOOL)
 																{
-																	Reg temp = REG_GET_AVAIL;
-																	EMIT("li " + REG_TO_STR(temp) + ",1");
-																	EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
-																	REG_FREE(temp);
+																	$3->place = handleBoolVal($3->trueList, $3->falseList);
 																}
-																else if ($3->type == OUR_BOOL && $3->boolVal == BOOL_FALSE)
-																{
-																	Reg temp = REG_GET_AVAIL;
-																	EMIT("li " + REG_TO_STR(temp) + ",0");
-																	EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
-																	REG_FREE(temp);
-																}
-																else
-																{
-																	EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
-																}
+																EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
 															}
 															else {
 																Reg tempReg = REG_GET_AVAIL;
@@ -398,29 +373,25 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorMismatch(yylineno);
 																exit(0);
 															}
+
+															ostringstream ostr2;
+															ostr2 << node->arraySize;
+															Reg tmp = REG_GET_AVAIL;
+															if ($3->type == OUR_BOOL)
+															{
+																$3->place = handleBoolVal($3->trueList, $3->falseList);
+															}
+															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
+															EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
+															REG_FREE(tmp);
+															REG_FREE($3->place);
+
 															ostringstream ostr;
 															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
 															varPosInStack += 4 * ($3->intVal);
 															ostr << varPosInStack;
-															if ($6->type == OUR_BOOL && $6->boolVal == BOOL_TRUE)
-															{
-																Reg temp = REG_GET_AVAIL;
-																EMIT("li " + REG_TO_STR(temp) + ",1");
-																EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
-																REG_FREE(temp);
-															}
-															else if ($6->type == OUR_BOOL && $6->boolVal == BOOL_FALSE)
-															{
-																Reg temp = REG_GET_AVAIL;
-																EMIT("li " + REG_TO_STR(temp) + ",0");
-																EMIT("sw " + REG_TO_STR(temp) + ", " + ostr.str() + "($fp)");
-																REG_FREE(temp);
-															}
-															else
-															{
-																EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
-																REG_FREE($6->place);
-															}
+															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
+															REG_FREE($6->place);
 														}
 			|	Call SC									{	$$ = $1;
 															$$->place = REG_GET_AVAIL;
@@ -482,6 +453,10 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															numOfCellsToFree *= 4;
 															ostr << numOfCellsToFree;
 															EMIT("add $sp, $sp, " + ostr.str());
+															if ($2->type == OUR_BOOL)
+															{
+																$2->place = handleBoolVal($2->trueList, $2->falseList);
+															}
 															EMIT("move $v0, " + REG_TO_STR($2->place));
 															REG_FREE($2->place);
 															EMIT("jr $ra");
@@ -575,27 +550,14 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																	}
 																}
 																else {
+																	if ($3->expList[i]->type == OUR_BOOL)
+																	{
+																		$3->expList[i]->place = handleBoolVal($3->trueList, $3->falseList);
+																	}
 																	EMIT("subu $sp ,$sp ,4");
-																	if ($3->expList[i]->type == OUR_BOOL && $3->expList[i]->boolVal == BOOL_TRUE)
-																	{
-																		Reg temp = REG_GET_AVAIL;
-																		EMIT("li " + REG_TO_STR(temp) + ",1");
-																		EMIT("sw " + REG_TO_STR(temp) + ", $sp");
-																		REG_FREE(temp);
-																	}
-																	else if ($3->expList[i]->type == OUR_BOOL && $3->expList[i]->boolVal == BOOL_FALSE)
-																	{
-																		Reg temp = REG_GET_AVAIL;
-																		EMIT("li " + REG_TO_STR(temp) + ",0");
-																		EMIT("sw " + REG_TO_STR(temp) + ", $sp");
-																		REG_FREE(temp);
-																	}
-																	else
-																	{
-																		EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", $sp");
-																	}
-																	
+																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", $sp");
 																}
+																REG_FREE($3->expList[i]->place);
 															}
 															EMIT("jal " + $1->id);
 															EMIT("lw $fp, 0($sp)");
@@ -664,12 +626,19 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$->isArray = false;
 															$$->place = REG_GET_AVAIL;
 															ostringstream ostr;
+															ostringstream ostr2;
 															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
 															varPosInStack += 4 * ($3->intVal);
+															ostr2 << node->arraySize;
 															ostr << varPosInStack;
+															Reg tmp = REG_GET_AVAIL;
+															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
+															EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
+															REG_FREE(tmp);
+															REG_FREE($3->place);
 															EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
 														}
-			|	Exp BINOP Exp							{	if(!($1->isNum() && $3->isNum()))
+			|	Exp BINOPPM Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
 																errorMismatch(yylineno);
 																exit(0);
@@ -688,6 +657,27 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															{
 																EMIT("and " + REG_TO_STR($$->place) + " ," + REG_TO_STR($$->place) + " ,0xff");
 															}
+
+														}
+			| Exp BINOPMD Exp{ if (!($1->isNum() && $3->isNum()))
+														{
+															errorMismatch(yylineno);
+															exit(0);
+														}
+														if ($1->isByte() && $3->isByte())
+														{
+															$$ = new Node(OUR_BYTE);
+														}
+														else
+														{
+															$$ = new Node(OUR_INT);
+														}
+
+														$$->place = makeBinOpExp($2->id, $1->place, $3->place);
+														if ($1->isByte() && $3->isByte())
+														{
+															EMIT("and " + REG_TO_STR($$->place) + " ," + REG_TO_STR($$->place) + " ,0xff");
+														}
 
 														}
 			|	ID										{	
@@ -740,15 +730,10 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 			|	TRUE									{	$$ = new Node(OUR_BOOL); 
 															$$->falseList = new vector<int>();
 															$$->trueList = new vector<int>(MAKE_LIST(EMIT("b ")));
-															
-															$$->boolVal = BOOL_TRUE;
-															
 														}
 			|	FALSE									{	$$ = new Node(OUR_BOOL); 
 															$$->trueList = new vector<int>();
 															$$->falseList = new vector<int>(MAKE_LIST(EMIT("b ")));
-															
-															$$->boolVal = BOOL_FALSE;
 														}
 			|	Exp	AND M	Exp								{	if(!($1->isBool() && $4->isBool()))
 															{
@@ -759,10 +744,6 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															BACKPATCH(*($1->trueList), $3->nextLabel);
 															$$->trueList = new vector<int>(*($4->trueList));
 															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($4->falseList)));
-															if ($1->boolVal == BOOL_FALSE)
-															{
-																$$->boolVal = BOOL_FALSE;
-															}
 															
 														}
 			|	Exp	OR M Exp								{	if(!($1->isBool() && $4->isBool()))
@@ -774,10 +755,6 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															BACKPATCH(*($1->falseList), $3->nextLabel);
 															$$->trueList = new vector<int>(MERGE_LISTS(*($1->trueList), *($4->trueList)));
 															$$->falseList = new vector<int>(*($4->falseList));
-															if ($1->boolVal == BOOL_TRUE)
-															{
-																$$->boolVal = BOOL_TRUE;
-															}
 														}
 			|	Exp	RELOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -795,14 +772,6 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$ = new Node(OUR_BOOL); 
 															$$->trueList = $1->falseList;
 															$$->falseList = $1->trueList;
-															if ($1->boolVal == BOOL_TRUE)
-															{
-																$$->boolVal = BOOL_FALSE;
-															}
-															else if ($1->boolVal == BOOL_FALSE)
-															{
-																$$->boolVal = BOOL_TRUE;
-															}
 														}
 			;
 
@@ -825,6 +794,7 @@ int main()
 	yydebug = 1;
 #endif
 	createDivByZeroErrFunc();
+	createOutOfBoundErrFunc();
 	createPrintFunc();
 	createPrintiFunc();
 	yyparse();

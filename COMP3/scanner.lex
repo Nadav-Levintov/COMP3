@@ -56,9 +56,13 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 									yylval = new Node(yytext);
 									return RELOP;
 								}
-"+"|"-"|"*"|"/"					{
+"+"|"-"							{
 									yylval = new Node(yytext);
-									return BINOP;
+									return BINOPPM;
+								}
+"*"|"/"							{
+									yylval = new Node(yytext);
+									return BINOPMD;
 								}
 {letter}{digitletter}*			{
 									yylval = new Node(yytext);

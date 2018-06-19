@@ -38,7 +38,9 @@ void makeRelOpExp(string op, Reg r1, Reg r2, vector<int>** trueList, vector<int>
 void makeRelOpExpCode(string op, Reg r1, Reg r2, vector<int>** trueList, vector<int>** falseList);
 void copyRetAddrToStack(int numOfArgs);
 void createDivByZeroErrFunc();
+void createOutOfBoundErrFunc();
 void createPrintFunc();
 void createPrintiFunc();
+Reg handleBoolVal(vector<int> *trueList, vector<int> *falseList);
 
 #endif

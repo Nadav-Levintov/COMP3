@@ -34,7 +34,7 @@ Reg makeBinOpExpMul(Reg r1, Reg r2) {
 }
 Reg makeBinOpExpDiv(Reg r1, Reg r2) {
 	Reg tmp = makeExp("0");
-	EMIT("beq " + REG_TO_STR(tmp) + " ," + REG_TO_STR(r2) + " , divByZeroErr");
+	EMIT("beq " + REG_TO_STR(r2) + " ," + REG_TO_STR(tmp) + " , divByZeroErr");
 	REG_FREE(tmp);
 	EMIT("div " + REG_TO_STR(r1) + " ," + REG_TO_STR(r2));
 	MFLO(r1);
@@ -110,6 +110,16 @@ void createDivByZeroErrFunc() {
 	EMIT("syscall");
 }
 
+void createOutOfBoundErrFunc() {
+	EMITDATA("errarraymsg: .asciiz \"Error index out of bounds\\n\"");
+	EMIT("outOfBoundErr:");
+	EMIT("li $v0,4");
+	EMIT("la $a0,errarraymsg");
+	EMIT("syscall");
+	EMIT("li $v0,10");
+	EMIT("syscall");
+}
+
 void createPrintFunc() {
 	EMIT("print:");
 	EMIT("lw $a0,0($sp)");
@@ -124,5 +134,22 @@ void createPrintiFunc() {
 	EMIT("li $v0,1");
 	EMIT("syscall");
 	EMIT("jr $ra");
+}
+
+Reg handleBoolVal(vector<int> *trueList, vector<int> *falseList) {
+	Reg place = REG_GET_AVAIL;
+	string trueLabel = NEXT_LABEL;
+	EMIT("li " + REG_TO_STR(place) + ", 1");
+	int branch = EMIT("b ");
+
+	string falseLable = NEXT_LABEL;
+	EMIT("li " + REG_TO_STR(place) + ", 0");
+	string origCode = NEXT_LABEL;
+
+	BACKPATCH(MAKE_LIST(branch), origCode);
+	BACKPATCH(*trueList, trueLabel);
+	BACKPATCH(*falseList, falseLable);
+
+	return place;
 }
 
