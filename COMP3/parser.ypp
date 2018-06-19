@@ -553,7 +553,6 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																	{
 																		Node * tmpn = $3;
 																		$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
-																		EMIT_COMMENT("EXPLIST");
 																	}
 																	EMIT("subu $sp ,$sp ,4");
 																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", ($sp)");
@@ -697,8 +696,6 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															ostr << varPosInStack;
 															$$->place = REG_GET_AVAIL;
 															if(!node->isArray){
-																EMIT_COMMENT("loading:");
-																EMIT_COMMENT($1->id);
 																EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
 															}
 															else {
@@ -769,7 +766,6 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$ = new Node(OUR_BOOL);
 															Node *tmp = $$;
 															makeRelOpExp($2->id, $1->place, $3->place, &($$->trueList), &($$->falseList));
-															EMIT_COMMENT("Testing");
 														}
 			|	NOT	Exp									{	if(!($2)->isBool())
 															{
@@ -784,12 +780,10 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 
 M			:											{
 															$$ = new Node();
-															EMIT_COMMENT("M");
 															$$->nextLabel = NEXT_LABEL;
 														};
 N			:											{
 															$$ = new Node();
-															EMIT_COMMENT("N");
 															$$->codeLineNum = EMIT("b ");
 														};
 
