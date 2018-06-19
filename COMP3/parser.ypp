@@ -157,8 +157,10 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 																dynamic_cast<VarTable*>(tableStack.top())->push(var_entry);
 															}
 															EMIT($2->id + ":");
+															EMITFP;
 														} LBRACE Statements RBRACE {
 															close_scope();
+															EMIT("jal $ra");
 														}
 			;
 

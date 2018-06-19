@@ -13,7 +13,7 @@ using namespace output;
 
 #define EMIT(str) CodeBuffer::instance().emit(str)
 #define EMITDATA(str) CodeBuffer::instance().emitData(str)
-#define EMITFP EMIT("subu $fp, $sp, 4")
+#define EMITFP EMIT("move $fp, $sp")
 #define REG_TO_STR(reg) RegPool::regToString(reg)
 #define REG_FREE(r) RegPool::freeReg(r)
 #define EMIT_OP(op,r1,r2) EMIT(op + REG_TO_STR(r1) + " ,"+ REG_TO_STR(r1)+" ," + REG_TO_STR(r2))
@@ -25,6 +25,7 @@ using namespace output;
 #define REG_GET_AVAIL RegPool::getAvailReg()
 #define SAVE_ALL_REGS RegPool::regsSaveAll()
 #define LOAD_ALL_REGS RegPool::regsLoadAll()
+#define EMIT_COMMENT(comment) EMIT("#"+comment)
 
 Reg makeExp(string val);
 Reg makeBinOpExp(string val, Reg r1, Reg r2);
