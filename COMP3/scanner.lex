@@ -74,7 +74,7 @@ linebreak		(\x0d\x0a|\x0d|\x0a)
 }
 \"								BEGIN(str);
 <str>\"							BEGIN(INITIAL);return STRING;
-<str>([^\n\r\"\\]|\\[rnt"\\])+  ;
+<str>([^\n\r\"\\]|\\[rnt"\\])+ {yylval = new Node(yytext); }
 "//"[^\r\n]*[\r|\n|\r\n]?		;
 <REALLYEND><<EOF>>				{ return 0; }
 <INITIAL><<EOF>>				{ BEGIN(REALLYEND); return EOF1; }

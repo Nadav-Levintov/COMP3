@@ -21,6 +21,7 @@
 	FuncTable* funcTable;
 	stack<int> offsetStack;
 	static int stringCounter = 0;
+	static int debug_counter = 0;
 
 	void make_table();
 	bool is_break_scope();
@@ -32,6 +33,7 @@
 	bool check_func_exists_name(string id);
 	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize);
 	bool isAssignable(Node* assignedTo, Node* assigned);
+	int get_pos_var_exists_id(string id);
 	void clear_ostr(ostringstream *ostr)
 	{
 		ostr->str("");
@@ -230,10 +232,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															Reg tempReg = REG_GET_AVAIL;
 															EMIT("li " + REG_TO_STR(tempReg) + ", 0");
 															EMIT("sw " + REG_TO_STR(tempReg) + ", 0($sp)");
-															REG_FREE(tempReg);
-
-															$$ = $3;
-															
+															REG_FREE(tempReg);															
 														}
 			|	Type ID ASSIGN Exp SC					{	
 															Node* node;
@@ -336,11 +335,12 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															}
 															ostringstream ostr;
 															ostringstream ostr2;
-															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															ostr << varPosInStack;
 															if(!node->isArray){
 																if ($3->type == OUR_BOOL)
 																{
+																	REG_FREE($3->place);
 																	$3->place = handleBoolVal($3->trueList, $3->falseList);
 																}
 																EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
@@ -359,7 +359,6 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																REG_FREE(tempReg);
 															}
 															REG_FREE($3->place);
-
 														}
 			|	ID LBRACK Exp RBRACK ASSIGN Exp SC		{
 															Node* node;
@@ -387,7 +386,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															REG_FREE($3->place);
 
 															ostringstream ostr;
-															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															varPosInStack += 4 * ($3->intVal);
 															ostr << varPosInStack;
 															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
@@ -555,7 +554,7 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																		$3->expList[i]->place = handleBoolVal($3->trueList, $3->falseList);
 																	}
 																	EMIT("subu $sp ,$sp ,4");
-																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", $sp");
+																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", ($sp)");
 																}
 																REG_FREE($3->expList[i]->place);
 															}
@@ -627,7 +626,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$->place = REG_GET_AVAIL;
 															ostringstream ostr;
 															ostringstream ostr2;
-															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															varPosInStack += 4 * ($3->intVal);
 															ostr2 << node->arraySize;
 															ostr << varPosInStack;
@@ -692,10 +691,12 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																	exit(0);
 																}
 															ostringstream ostr;
-															int varPosInStack = -4 * tableStack.top()->getVarPosByID($1->id);
+															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															ostr << varPosInStack;
 															$$->place = REG_GET_AVAIL;
 															if(!node->isArray){
+																EMIT_COMMENT("loading:");
+																EMIT_COMMENT($1->id);
 																EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
 															}
 															else {
@@ -722,10 +723,12 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$->place = makeExp($1->id); 
 														}
 			|	STRING									{	$$ = new Node(OUR_STRING); 
-															string label = NEXT_LABEL;
-															EMITDATA(label + ": .asciiz " + $1->id);
+															ostringstream label;
+															label <<"__str" << stringCounter;
+															stringCounter++;
+															EMITDATA(label.str() + ": .asciiz " + string("\"") + $1->id + string("\""));
 															$$->place = REG_GET_AVAIL;
-															EMIT("la " +REG_TO_STR($$->place) + ", " + label); 
+															EMIT("la " +REG_TO_STR($$->place) + ", " + label.str()); 
 														}
 			|	TRUE									{	$$ = new Node(OUR_BOOL); 
 															$$->falseList = new vector<int>();
@@ -762,7 +765,9 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																exit(0);
 															}
 															$$ = new Node(OUR_BOOL);
+															Node *tmp = $$;
 															makeRelOpExp($2->id, $1->place, $3->place, &($$->trueList), &($$->falseList));
+															EMIT_COMMENT("Testing");
 														}
 			|	NOT	Exp									{	if(!($2)->isBool())
 															{
@@ -770,17 +775,19 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																exit(0);
 															}
 															$$ = new Node(OUR_BOOL); 
-															$$->trueList = $1->falseList;
-															$$->falseList = $1->trueList;
+															$$->trueList = $2->falseList;
+															$$->falseList = $2->trueList;
 														}
 			;
 
 M			:											{
 															$$ = new Node();
+															EMIT_COMMENT("M");
 															$$->nextLabel = NEXT_LABEL;
 														};
 N			:											{
 															$$ = new Node();
+															EMIT_COMMENT("N");
 															$$->codeLineNum = EMIT("b ");
 														};
 
@@ -880,9 +887,9 @@ bool check_var_exists_id(string id, Node** retNode)
 {
 	if (tableStack.size() <= 1)
 		return false;
-	
+
 	vector<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
-	for (int i=0; i< current_table_rows.size() ; i++)
+	for (int i = 0; i < current_table_rows.size(); i++)
 	{
 		if (current_table_rows[i]->node->id == id)
 		{
@@ -894,6 +901,27 @@ bool check_var_exists_id(string id, Node** retNode)
 	VarTable* temp = dynamic_cast<VarTable*>(tableStack.top());
 	tableStack.pop();
 	bool res = check_var_exists_id(id, retNode);
+	tableStack.push(temp);
+	return res;
+}
+
+int get_pos_var_exists_id(string id)
+{
+	if (tableStack.size() <= 1)
+		assert(0);
+
+	vector<VarTableEntry*> current_table_rows = (dynamic_cast<VarTable*>(tableStack.top()))->rows;
+	for (int i = 0; i< current_table_rows.size(); i++)
+	{
+		if (current_table_rows[i]->node->id == id)
+		{
+			return current_table_rows[i]->offset + 1;
+		}
+	}
+
+	VarTable* temp = dynamic_cast<VarTable*>(tableStack.top());
+	tableStack.pop();
+	int res = get_pos_var_exists_id(id);
 	tableStack.push(temp);
 	return res;
 }

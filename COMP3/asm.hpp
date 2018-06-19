@@ -25,7 +25,7 @@ using namespace output;
 #define REG_GET_AVAIL RegPool::getAvailReg()
 #define SAVE_ALL_REGS RegPool::regsSaveAll()
 #define LOAD_ALL_REGS RegPool::regsLoadAll()
-#define EMIT_COMMENT(comment) EMIT("#"+comment)
+#define EMIT_COMMENT(comment) EMIT(string("#")+comment)
 
 Reg makeExp(string val);
 Reg makeBinOpExp(string val, Reg r1, Reg r2);

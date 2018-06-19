@@ -325,6 +325,7 @@ public:
 		}
 	}
 	virtual int getVarPosByID(string id) {
+		assert(0);
 		return 0;
 	}
 
