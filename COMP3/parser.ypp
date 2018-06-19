@@ -717,7 +717,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 														}
 			|	NUM										{	
 															$$ = $1;
-															$$->place = makeExp($$->id);
+															$$->place = makeExp($1->id);
 														}
 			|	NUM B									{	
 															int val = $1->intVal;
@@ -727,7 +727,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																exit(0);
 															}
 															$$ = new Node(OUR_BYTE,val); 
-															$$->place = makeExp($$->id); 
+															$$->place = makeExp($1->id); 
 														}
 			|	STRING									{	$$ = new Node(OUR_STRING); 
 															string label = NEXT_LABEL;

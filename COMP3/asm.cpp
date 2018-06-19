@@ -5,6 +5,7 @@
 Reg makeExp(string val)
 {
 	Reg r = RegPool::getAvailReg();
+	EMIT("#makeExp");
 	EMIT("li " + REG_TO_STR(r) + ", " + val);
 
 	return r;
