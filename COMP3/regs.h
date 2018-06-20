@@ -19,7 +19,7 @@ typedef enum reg_e {t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,s0,s1,s2,s3,s4,s5,s6,s7,MAX_RE
 class RegPool
 {
 private:
-	bool pool[MAX_REG]; // free = t, taken = f
+	bool pool[MAX_REG+1]; // free = t, taken = f
 	RegPool(){
 		for (int i = 0; i < MAX_REG; i++)
 			pool[i] = true;

@@ -12,6 +12,12 @@ RegPool& RegPool::getPoolInstance() {
 }
 
 string RegPool::regToString(Reg r) {
+	cout << r << endl;
+	if (r == MAX_REG);
+	{
+		cout << "trying to print ileagle reg" << endl;
+		assert(0);
+	}
 	return regs_name[r];
 }
 
@@ -57,6 +63,11 @@ void RegPool::regsLoadAll() {
 
 void RegPool::freeReg(Reg r)
 {
-	assert(r < MAX_REG);
+	
+	if(r == MAX_REG);
+	{
+		cout << "trying to free ileagle reg" << endl;
+		assert(0);
+	}
 	RegPool::getPoolInstance().pool[r] = true;
 }
