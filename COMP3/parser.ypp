@@ -256,6 +256,10 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																$4->place = handleBoolVal($4->trueList, $4->falseList);
 															}
 															EMIT("subu $sp, $sp, 4");
+															if ($4->type == OUR_BOOL && $4->place == MAX_REG)
+															{
+																$4->place = handleBoolVal($4->trueList, $4->falseList);
+															}
 															EMIT("sw " + REG_TO_STR($4->place) + ", 0($sp)");
 															REG_FREE($4->place);
 														}
@@ -389,6 +393,10 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															varPosInStack += 4 * ($3->intVal);
 															ostr << varPosInStack;
+															if ($6->type == OUR_BOOL && $6->place == MAX_REG)
+															{
+																$6->place = handleBoolVal($6->trueList, $6->falseList);
+															}
 															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
 															REG_FREE($6->place);
 														}
