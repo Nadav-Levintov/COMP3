@@ -125,7 +125,6 @@ void createPrintFunc() {
 	EMIT("lw $a0,0($sp)");
 	EMIT("li $v0,4");
 	EMIT("syscall");
-	EMIT("addu $sp ,$sp ,4");
 	EMIT("jr $ra");
 }
 
@@ -134,7 +133,6 @@ void createPrintiFunc() {
 	EMIT("lw $a0,0($sp)");
 	EMIT("li $v0,1");
 	EMIT("syscall");
-	EMIT("addu $sp ,$sp ,4");
 	EMIT("jr $ra");
 }
 

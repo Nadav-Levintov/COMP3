@@ -81,6 +81,7 @@ public:
 		this->trueList = new vector<int>();
 		this->falseList = new vector<int>();
 		this->breaksList = new vector<int>();
+		this->place = MAX_REG;
 	}
 	Node(string id, Type_enum type, int arraySize) {
 		this->id = id;
@@ -93,6 +94,8 @@ public:
 		this->trueList = new vector<int>();
 		this->falseList = new vector<int>();
 		this->breaksList = new vector<int>();
+		this->place = MAX_REG;
+
 	}
 	Node(string id) {
 		this->id = id;
@@ -105,6 +108,8 @@ public:
 		this->trueList = new vector<int>();
 		this->falseList = new vector<int>();
 		this->breaksList = new vector<int>();
+		this->place = MAX_REG;
+
 	}
 	Node(int intVal, string id) {
 		this->intVal = intVal;
@@ -117,6 +122,7 @@ public:
 		this->trueList = new vector<int>();
 		this->falseList = new vector<int>();
 		this->breaksList = new vector<int>();
+		this->place = MAX_REG;
 	}
 	Node(Type_enum type) {
 		this->type = type;
@@ -129,6 +135,7 @@ public:
 		this->trueList = new vector<int>();
 		this->falseList = new vector<int>();
 		this->breaksList = new vector<int>();
+		this->place = MAX_REG;
 	}
 	Node(Type_enum type, int intVal) {
 		this->type = type;
@@ -141,6 +148,7 @@ public:
 		this->trueList = new vector<int>();
 		this->falseList = new vector<int>();
 		this->breaksList = new vector<int>();
+		this->place = MAX_REG;
 	}
 	Node(Node *node) {
 		this->type = node->type;
@@ -151,6 +159,7 @@ public:
 		this->trueList = node->trueList;
 		this->falseList = node->falseList;
 		this->breaksList = node->breaksList;
+		this->place = node->place;
 	}
 
 	bool operator<(const Node& a)

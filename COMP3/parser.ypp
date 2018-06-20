@@ -159,6 +159,7 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 																}
 																dynamic_cast<VarTable*>(tableStack.top())->push(var_entry);
 															}
+															EMIT_COMMENT("*************");
 															EMIT($2->id + ":");
 															EMITFP;
 														} LBRACE Statements RBRACE {
@@ -250,7 +251,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															VarTableEntry *entry = new VarTableEntry(newNode, offsetStack.top());
 															dynamic_cast<VarTable*>(tableStack.top())->push(entry);
 															offsetStack.top() ++;
-															if ($4->type == OUR_BOOL)
+															if ($4->type == OUR_BOOL && $4->place == MAX_REG)
 															{
 																$4->place = handleBoolVal($4->trueList, $4->falseList);
 															}
@@ -338,9 +339,8 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															ostr << varPosInStack;
 															if(!node->isArray){
-																if ($3->type == OUR_BOOL)
+																if ($3->type == OUR_BOOL && $3->place == MAX_REG)
 																{
-																	REG_FREE($3->place);
 																	$3->place = handleBoolVal($3->trueList, $3->falseList);
 																}
 																EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
@@ -376,7 +376,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															ostringstream ostr2;
 															ostr2 << node->arraySize;
 															Reg tmp = REG_GET_AVAIL;
-															if ($3->type == OUR_BOOL)
+															if ($3->type == OUR_BOOL && $3->place == MAX_REG)
 															{
 																$3->place = handleBoolVal($3->trueList, $3->falseList);
 															}
@@ -393,8 +393,11 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															REG_FREE($6->place);
 														}
 			|	Call SC									{	$$ = $1;
-															$$->place = REG_GET_AVAIL;
-															EMIT("move " + REG_TO_STR($$->place) + ", $v0");
+															if ($$->type != OUR_VOID)
+															{
+																$$->place = REG_GET_AVAIL;
+																EMIT("move " + REG_TO_STR($$->place) + ", $v0");
+															}
 														}
 			|	RETURN SC								{
 															Type_enum scopeRetType = (tableStack.top())->get_scope_type();
@@ -410,13 +413,16 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															vector<VarTableEntry*> current_table_rows = varTable->rows;
 															for (int i = 0; i< current_table_rows.size(); i++)
 															{
-																if (current_table_rows[i]->node->isArray)
+																if (current_table_rows[i]->offset >= 0)
 																{
-																	numOfCellsToFree += current_table_rows[i]->node->arraySize;
-																}
-																else
-																{
-																	numOfCellsToFree++;
+																	if (current_table_rows[i]->node->isArray)
+																	{
+																		numOfCellsToFree += current_table_rows[i]->node->arraySize;
+																	}
+																	else
+																	{
+																		numOfCellsToFree++;
+																	}
 																}
 															}
 															ostringstream ostr;
@@ -440,13 +446,16 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															vector<VarTableEntry*> current_table_rows = varTable->rows;
 															for (int i = 0; i< current_table_rows.size(); i++)
 															{
-																if (current_table_rows[i]->node->isArray)
+																if (current_table_rows[i]->offset >= 0)
 																{
-																	numOfCellsToFree += current_table_rows[i]->node->arraySize;
-																}
-																else
-																{
-																	numOfCellsToFree++;
+																	if (current_table_rows[i]->node->isArray)
+																	{
+																		numOfCellsToFree += current_table_rows[i]->node->arraySize;
+																	}
+																	else
+																	{
+																		numOfCellsToFree++;
+																	}
 																}
 															}
 															ostringstream ostr;
@@ -454,7 +463,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															ostr << numOfCellsToFree;
 															if (numOfCellsToFree)
 																EMIT("add $sp, $sp, " + ostr.str());
-															if ($2->type == OUR_BOOL)
+															if ($2->type == OUR_BOOL && $2->place==MAX_REG)
 															{
 																$2->place = handleBoolVal($2->trueList, $2->falseList);
 															}
@@ -471,7 +480,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															tmpList.push_back($8->codeLineNum);
 															BACKPATCH(tmpList, $12->nextLabel);
 															} %prec ELSE
-			| 	IF  Mark1 M Statement Mark2	M						  	{
+			| 	IF  Mark1 M Statement Mark2	M			  	{
 															$$ = $3;
 															BACKPATCH(*($2->trueList), $3->nextLabel);
 															BACKPATCH(*($2->falseList), $6->nextLabel);
@@ -511,6 +520,15 @@ Mark1		:		LPAREN Exp RPAREN					{
 																exit(0);
 															}
 															$$ = $2;
+															if ($2->place != MAX_REG)
+															{
+																Reg tmp = REG_GET_AVAIL;
+																EMIT("li " + REG_TO_STR(tmp) + ",1");
+																$2->trueList->push_back(EMIT("beq " + REG_TO_STR($2->place) + ", " + REG_TO_STR(tmp) + ", "));
+																$2->falseList->push_back(EMIT("b "));
+																REG_FREE(tmp);
+
+															}
 															open_new_scope(false);
 														} ;
 
@@ -523,7 +541,7 @@ Mark3		:											{
 														};
 
 
-Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
+Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 															if (check_func_exists($1->id,$3, &retType))
 															{
 																$$->type = *retType;
@@ -532,6 +550,13 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 															{
 																errorUndefFunc(yylineno,$1->id);
 																exit(0);
+															}
+															for (int i = 0; i < $3->expList.size(); i++)
+															{
+																if (!($3->expList[i]->isArray) && $3->expList[i]->type == OUR_BOOL && $3->expList[i]->place == MAX_REG)
+																{
+																	$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
+																}
 															}
 															SAVE_ALL_REGS;
 															EMIT("subu $sp ,$sp ,4");
@@ -552,24 +577,22 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																	}
 																}
 																else {
-																	if ($3->expList[i]->type == OUR_BOOL)
-																	{
-																		Node * tmpn = $3;
-																		$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
-																	}
 																	EMIT("subu $sp ,$sp ,4");
 																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", 0($sp)");
 																}
 																REG_FREE($3->expList[i]->place);
 															}
 															EMIT("jal " + $1->id);
+															ostringstream ostr;
+															ostr << 4 * $3->expList.size();
+															EMIT("addu $sp ,$sp ,"+ostr.str());
 															EMIT("lw $ra, 0($sp)");
 															EMIT("addu $sp ,$sp ,4");
 															EMIT("lw $fp, 0($sp)");
 															EMIT("addu $sp ,$sp ,4");
 															LOAD_ALL_REGS;
 														}
-			|	ID LPAREN RPAREN M						{	Type_enum *retType;
+			|	ID LPAREN RPAREN						{	Type_enum *retType;
 															if(check_func_exists($1->id,new Node(), &retType))
 															{
 																$$->type = *retType;

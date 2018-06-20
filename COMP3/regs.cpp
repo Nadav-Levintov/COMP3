@@ -27,10 +27,8 @@ Reg RegPool::getAvailReg()
 		}
 		i=Reg(i+1);
 	}
-#ifdef DEBUG
 	cout << "Out of regs" << endl;
 	assert(0);
-#endif
 	return MAX_REG;
 }
 
