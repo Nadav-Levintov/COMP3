@@ -163,7 +163,7 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 															EMITFP;
 														} LBRACE Statements RBRACE {
 															close_scope();
-															EMIT("jal $ra");
+															EMIT("jr $ra");
 														}
 			;
 
@@ -422,7 +422,8 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															ostringstream ostr;
 															numOfCellsToFree *= 4;
 															ostr << numOfCellsToFree;
-															EMIT("add $sp, $sp, " + ostr.str());
+															if(numOfCellsToFree)
+																EMIT("add $sp, $sp, " + ostr.str());
 															EMIT("jr $ra");
 														}
 			|	RETURN Exp SC							{
@@ -451,7 +452,8 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															ostringstream ostr;
 															numOfCellsToFree *= 4;
 															ostr << numOfCellsToFree;
-															EMIT("add $sp, $sp, " + ostr.str());
+															if (numOfCellsToFree)
+																EMIT("add $sp, $sp, " + ostr.str());
 															if ($2->type == OUR_BOOL)
 															{
 																$2->place = handleBoolVal($2->trueList, $2->falseList);
@@ -536,6 +538,7 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 															EMIT("sw $fp, 0($sp)");
 															EMIT("subu $sp ,$sp ,4");
 															EMIT("sw $ra, 0($sp)");
+															//Putting parameters on stack
 															for (int i = 0; i < $3->expList.size(); i++)
 															{
 																if ($3->expList[i]->isArray)
@@ -555,14 +558,14 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 																		$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
 																	}
 																	EMIT("subu $sp ,$sp ,4");
-																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", ($sp)");
+																	EMIT("sw " + REG_TO_STR($3->expList[i]->place) + ", 0($sp)");
 																}
 																REG_FREE($3->expList[i]->place);
 															}
 															EMIT("jal " + $1->id);
-															EMIT("lw $fp, 0($sp)");
-															EMIT("addu $sp ,$sp ,4");
 															EMIT("lw $ra, 0($sp)");
+															EMIT("addu $sp ,$sp ,4");
+															EMIT("lw $fp, 0($sp)");
 															EMIT("addu $sp ,$sp ,4");
 															LOAD_ALL_REGS;
 														}
@@ -583,9 +586,9 @@ Call		:	ID LPAREN ExpList RPAREN M				{ Type_enum *retType;
 															EMIT("subu $sp ,$sp ,4");
 															EMIT("sw $ra, 0($sp)");
 															EMIT("jal " + $1->id);
-															EMIT("lw $fp, 0($sp)");
-															EMIT("addu $sp ,$sp ,4");
 															EMIT("lw $ra, 0($sp)");
+															EMIT("addu $sp ,$sp ,4");
+															EMIT("lw $fp, 0($sp)");
 															EMIT("addu $sp ,$sp ,4");
 															LOAD_ALL_REGS;
 														}
@@ -853,7 +856,8 @@ void close_scope() {
 	ostringstream ostr;
 	numOfCellsToFree *= 4;
 	ostr << numOfCellsToFree;
-	EMIT("add $sp, $sp, " + ostr.str());
+	if (numOfCellsToFree)
+		EMIT("add $sp, $sp, " + ostr.str());
 }
 
 void make_table()
