@@ -875,13 +875,16 @@ void close_scope() {
 	vector<VarTableEntry*> current_table_rows = varTable->rows;
 	for (int i = 0; i< current_table_rows.size(); i++)
 	{
-		if (current_table_rows[i]->node->isArray)
+		if (current_table_rows[i]->offset >= 0)
 		{
-			numOfCellsToFree += current_table_rows[i]->node->arraySize;
-		}
-		else
-		{
-			numOfCellsToFree++;
+			if (current_table_rows[i]->node->isArray)
+			{
+				numOfCellsToFree += current_table_rows[i]->node->arraySize;
+			}
+			else
+			{
+				numOfCellsToFree++;
+			}
 		}
 	}
 	ostringstream ostr;
