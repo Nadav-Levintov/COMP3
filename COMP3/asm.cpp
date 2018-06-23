@@ -151,6 +151,8 @@ Reg handleBoolVal(vector<int> *trueList, vector<int> *falseList) {
 	BACKPATCH(MAKE_LIST(branch), origCode);
 	BACKPATCH(*trueList, trueLabel);
 	BACKPATCH(*falseList, falseLable);
+	trueList->clear();
+	falseList->clear();
 
 	return place;
 }

@@ -56,7 +56,7 @@ public:
 	Reg place;
 	string nextLabel;
 	int codeLineNum;
-
+	bool relOp;
 
 	vector<Node*> expList;
 	vector<Node*> frmlList;

@@ -29,7 +29,7 @@
 	void open_new_scope(bool is_break_allowed);
 	void open_new_function_scope(Type_enum retType);
 	bool check_func_exists(string& id, Node* expListNode, Type_enum **retType);
-	void close_scope();
+	void close_scope(bool is_break=false);
 	bool check_func_exists_name(string id);
 	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize);
 	bool isAssignable(Node* assignedTo, Node* assigned);
@@ -218,7 +218,7 @@ Statements	:	Statement								{
 														}
 			;
 
-Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
+Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 			|	Type ID SC								{	
 															Node* node;
 															if (check_var_exists_id($2->id, &node) || check_func_exists_name($2->id))
@@ -493,7 +493,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															BACKPATCH(tmpList, $13->nextLabel);
 															} %prec ELSE
 			| 	IF  Mark1 M Statement Mark2	M			  	{
-															$$ = new Node();
+															$$ = $4;
 															EMIT_COMMENT("IF NO ELSE");
 															BACKPATCH(*($2->trueList), $3->nextLabel);
 															BACKPATCH(*($2->falseList), $6->nextLabel);
@@ -508,17 +508,20 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															$$ = new Node();
 															EMIT_COMMENT("WHILE PRE STATEMNTS");
 															$$->breaksList = new vector<int>();
-															if ($4->place == MAX_REG)
+															//if (!$4->relOp)
 															{
-																EMIT_COMMENT("WHILE LPAREN M Exp RPAREN ");
-																$4->place = handleBoolVal($4->trueList, $4->falseList);
+																if ($4->place == MAX_REG)
+																{
+																	EMIT_COMMENT("WHILE LPAREN M Exp RPAREN ");
+																	$4->place = handleBoolVal($4->trueList, $4->falseList);
+																}
+																Reg tmp = REG_GET_AVAIL;
+																EMIT("li " + REG_TO_STR(tmp) + ",1");
+																$4->trueList->push_back(EMIT("beq " + REG_TO_STR($4->place) + ", " + REG_TO_STR(tmp) + ", "));
+																$4->falseList->push_back(EMIT("b "));
+																REG_FREE(tmp);
+																REG_FREE($4->place);
 															}
-															Reg tmp = REG_GET_AVAIL;
-															EMIT("li " + REG_TO_STR(tmp) + ",1");
-															$4->trueList->push_back(EMIT("beq " + REG_TO_STR($4->place) + ", " + REG_TO_STR(tmp) + ", "));
-															$4->falseList->push_back(EMIT("b "));
-															REG_FREE(tmp);
-															REG_FREE($4->place);
 														} M Statement Mark2 N M {
 															vector<int> *tmpList = new vector<int>();
 															tmpList->push_back($10->codeLineNum);
@@ -535,7 +538,10 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																errorUnexpectedBreak(yylineno);
 																exit(0);
 															}
-														$$->breaksList = new vector<int>(MAKE_LIST(EMIT("b ")));
+															EMIT_COMMENT("BREAK");
+															$$ = new Node();
+															close_scope(true);
+															$$->breaksList = new vector<int>(MAKE_LIST(EMIT("b ")));
 														}
 			;
 
@@ -857,6 +863,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															}
 															EMIT_COMMENT("RELOP");
 															$$ = new Node(OUR_BOOL);
+															$$->relOp = true;
 															Node *tmp = $$;
 															makeRelOpExp($2->id, $1->place, $3->place, &($$->trueList), &($$->falseList));
 														}
@@ -929,13 +936,17 @@ void open_new_function_scope(Type_enum retType)
 	offsetStack.push(offsetStack.top());
 }
 
-void close_scope() {
+void close_scope(bool is_break) {
 	/*print*/
 	//endScope();
 	//tableStack.top()->print_scope();
 	VarTable* varTable = static_cast<VarTable*>(tableStack.top());
-	tableStack.pop();
-	offsetStack.pop();
+
+	if (!is_break)
+	{
+		tableStack.pop();
+		offsetStack.pop();
+	}
 
 	int numOfCellsToFree = 0;
 	vector<VarTableEntry*> current_table_rows = varTable->rows;
