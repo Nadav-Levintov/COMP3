@@ -354,8 +354,8 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 																{
 																	clear_ostr(&ostr);
 																	clear_ostr(&ostr2);
-																	ostr2 << (i * 4);
-																	ostr << varPosInStack + (i * 4);
+																	ostr2 << (-i * 4);
+																	ostr << varPosInStack + (-i * 4);
 																	EMIT("lw " + REG_TO_STR(tempReg) + ", "+ ostr2.str()+"(" + REG_TO_STR($3->place) + ")");
 																	EMIT("sw " + REG_TO_STR(tempReg) + ", " + ostr.str() + "($fp)");
 																}
@@ -396,8 +396,10 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 															}
 
 															ostringstream ostr;
-															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
-															varPosInStack -= 4 * ($3->intVal);
+															int varPosInStack = -1*get_pos_var_exists_id($1->id);
+															varPosInStack += 1;//(varPosInStack <= 0) ? 1 : 2;
+															varPosInStack *= 4;
+															varPosInStack -= 4 * (($3->intVal)+1);
 															ostr << varPosInStack;
 															if ($7->type == OUR_BOOL && $7->place == MAX_REG)
 															{
@@ -612,7 +614,7 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 																	{
 																		EMIT("subu $sp ,$sp ,4");
 																		ostringstream ostr;
-																		ostr << j * 4;
+																		ostr << j * -4;
 																		
 																		EMIT("lw "+REG_TO_STR(tmp)+", " + ostr.str() + "(" + REG_TO_STR($3->expList[i]->place) + ")");
 																		EMIT("sw " + REG_TO_STR(tmp) + ", 0($sp)");
@@ -627,8 +629,20 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 																REG_FREE($3->expList[i]->place);
 															}
 															EMIT("jal " + $1->id);
+															int memToFree = 0;
+															for (int i = 0; i < $3->expList.size(); i++)
+															{
+																if ($3->expList[i]->isArray)
+																{
+																	memToFree += $3->expList[i]->arraySize;
+																}
+																else
+																{
+																	memToFree++;
+																}
+															}
 															ostringstream ostr;
-															ostr << 4 * $3->expList.size();
+															ostr << 4 * memToFree;
 															EMIT("addu $sp ,$sp ,"+ostr.str());
 															EMIT("lw $ra, 0($sp)");
 															EMIT("addu $sp ,$sp ,4");
