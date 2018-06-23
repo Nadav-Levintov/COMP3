@@ -516,9 +516,9 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 																	$4->place = handleBoolVal($4->trueList, $4->falseList);
 																}
 																Reg tmp = REG_GET_AVAIL;
-																EMIT("li " + REG_TO_STR(tmp) + ",1");
-																$4->trueList->push_back(EMIT("beq " + REG_TO_STR($4->place) + ", " + REG_TO_STR(tmp) + ", "));
-																$4->falseList->push_back(EMIT("b "));
+																EMIT("li " + REG_TO_STR(tmp) + ",0");
+																$4->falseList->push_back(EMIT("beq " + REG_TO_STR($4->place) + ", " + REG_TO_STR(tmp) + ", "));
+																$4->trueList->push_back(EMIT("b "));
 																REG_FREE(tmp);
 																REG_FREE($4->place);
 															}
@@ -556,9 +556,9 @@ Mark1		:		LPAREN Exp RPAREN					{
 															{
 																EMIT_COMMENT("IF BOOL Condition");
 																Reg tmp = REG_GET_AVAIL;
-																EMIT("li " + REG_TO_STR(tmp) + ",1");
-																$2->trueList->push_back(EMIT("beq " + REG_TO_STR($2->place) + ", " + REG_TO_STR(tmp) + ", "));
-																$2->falseList->push_back(EMIT("b "));
+																EMIT("li " + REG_TO_STR(tmp) + ",0");
+																$2->falseList->push_back(EMIT("beq " + REG_TO_STR($2->place) + ", " + REG_TO_STR(tmp) + ", "));
+																$2->trueList->push_back(EMIT("b "));
 																REG_FREE(tmp);
 																REG_FREE($2->place);
 															}
@@ -602,13 +602,19 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 															{
 																if ($3->expList[i]->isArray)
 																{
+																	EMIT_COMMENT("PASSING ARR BY VAL");
+																	Reg tmp = REG_GET_AVAIL;
 																	for (int j = 0; j < $3->expList[i]->arraySize; j++)
 																	{
 																		EMIT("subu $sp ,$sp ,4");
 																		ostringstream ostr;
 																		ostr << j * 4;
-																		EMIT("move "+	ostr.str()+"(" + REG_TO_STR($3->expList[i]->place) + "), $sp");
+																		
+																		EMIT("lw "+REG_TO_STR(tmp)+", " + ostr.str() + "(" + REG_TO_STR($3->expList[i]->place) + ")");
+																		EMIT("sw " + REG_TO_STR(tmp) + ", 0($sp)");
+																		
 																	}
+																	REG_FREE(tmp);
 																}
 																else {
 																	EMIT("subu $sp ,$sp ,4");
@@ -690,7 +696,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															ostringstream ostr;
 															ostringstream ostr2;
 															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
-															varPosInStack += 4 * ($3->intVal);
+															varPosInStack -= 4 * ($3->intVal);
 															ostr2 << node->arraySize;
 															ostr << varPosInStack;
 															Reg tmp = REG_GET_AVAIL;
@@ -817,44 +823,102 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$->trueList = new vector<int>();
 															$$->falseList = new vector<int>(MAKE_LIST(EMIT("b ")));
 														}
-			|	Exp	AND M	Exp								{	if(!($1->isBool() && $4->isBool()))
+			|	Exp AND									{
+															if ($1->place != MAX_REG)
+															{
+																EMIT_COMMENT("$1 has a reg");
+
+																if ($1->falseList->size() == 0 && $1->trueList->size() == 0)
+																{
+																	EMIT_COMMENT("$1 lists are empty");
+
+																	Reg tmp = REG_GET_AVAIL;
+																	EMIT("li " + REG_TO_STR(tmp) + ",0");
+																	$1->falseList->push_back(EMIT("beq " + REG_TO_STR($1->place) + ", " + REG_TO_STR(tmp) + ", "));
+																	$1->trueList->push_back(EMIT("b "));
+																	REG_FREE(tmp);
+																}
+																REG_FREE($1->place);
+															}
+														} M	Exp								{	if(!($1->isBool() && $5->isBool()))
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
 															EMIT_COMMENT("AND");
 															$$ = new Node(OUR_BOOL);
-															BACKPATCH(*($1->trueList), $3->nextLabel);
-															$$->trueList = new vector<int>(*($4->trueList));
-															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($4->falseList)));
-															if ($1->place != MAX_REG)
+
+															if ($5->place != MAX_REG)
 															{
-																REG_FREE($1->place);
+																EMIT_COMMENT("$4 has a reg");
+
+																if ($5->falseList->size() == 0 && $5->trueList->size() == 0)
+																{
+																	EMIT_COMMENT("$5 lists are empty");
+
+																	Reg tmp = REG_GET_AVAIL;
+																	EMIT("li " + REG_TO_STR(tmp) + ",0");
+																	$5->falseList->push_back(EMIT("beq " + REG_TO_STR($5->place) + ", " + REG_TO_STR(tmp) + ", "));
+																	$5->trueList->push_back(EMIT("b "));
+																	REG_FREE(tmp);
+																	
+																}
+																REG_FREE($5->place);
 															}
-															if ($4->place != MAX_REG)
-															{
-																REG_FREE($4->place);
-															}
+
+															BACKPATCH(*($1->trueList), $4->nextLabel);
+															$$->trueList = new vector<int>(*($5->trueList));
+															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($5->falseList)));
+															
 															
 														}
-			|	Exp	OR M Exp								{	if(!($1->isBool() && $4->isBool()))
+			|	Exp OR									{
+																if ($1->place != MAX_REG)
+																{
+																	EMIT_COMMENT("$1 has a reg");
+
+																	if ($1->falseList->size() == 0 && $1->trueList->size() == 0)
+																	{
+																		EMIT_COMMENT("$1 lists are empty");
+
+																		Reg tmp = REG_GET_AVAIL;
+																		EMIT("li " + REG_TO_STR(tmp) + ",0");
+																		$1->falseList->push_back(EMIT("beq " + REG_TO_STR($1->place) + ", " + REG_TO_STR(tmp) + ", "));
+																		$1->trueList->push_back(EMIT("b "));
+																		REG_FREE(tmp);
+																	}
+																	REG_FREE($1->place);
+																}
+															}
+															 M Exp {	if(!($1->isBool() && $5->isBool()))
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
 															EMIT_COMMENT("OR");
 															$$ = new Node(OUR_BOOL);
-															BACKPATCH(*($1->falseList), $3->nextLabel);
-															$$->trueList = new vector<int>(MERGE_LISTS(*($1->trueList), *($4->trueList)));
-															$$->falseList = new vector<int>(*($4->falseList));
-															if ($1->place != MAX_REG)
+															
+
+															if ($5->place != MAX_REG)
 															{
-																REG_FREE($1->place);
+																EMIT_COMMENT("$5 has a reg");
+
+																if ($5->falseList->size() == 0 && $5->trueList->size() == 0)
+																{
+																	EMIT_COMMENT("$5 lists are empty");
+																	Reg tmp = REG_GET_AVAIL;
+																	EMIT("li " + REG_TO_STR(tmp) + ",0");
+																	$5->falseList->push_back(EMIT("beq " + REG_TO_STR($5->place) + ", " + REG_TO_STR(tmp) + ", "));
+																	$5->trueList->push_back(EMIT("b "));
+																	REG_FREE(tmp);
+																}
+																REG_FREE($5->place);
 															}
-															if ($4->place != MAX_REG)
-															{
-																REG_FREE($4->place);
-															}
+
+															BACKPATCH(*($1->falseList), $4->nextLabel);
+															$$->trueList = new vector<int>(MERGE_LISTS(*($1->trueList), *($5->trueList)));
+															$$->falseList = new vector<int>(*($5->falseList));
+
 														}
 			|	Exp	RELOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
@@ -879,7 +943,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															if ($2->place != MAX_REG)
 															{
 																$$->place = REG_GET_AVAIL;
-																EMIT("not " + REG_TO_STR($$->place) + ", " + REG_TO_STR($2->place));
+																EMIT("xor " + REG_TO_STR($$->place) + ", " + REG_TO_STR($2->place) +",1");
 																REG_FREE($2->place);
 															}
 														}
