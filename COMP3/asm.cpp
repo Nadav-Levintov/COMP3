@@ -89,7 +89,8 @@ void makeRelOpExpCode(string op, Reg r1, Reg r2, vector<int>** trueList, vector<
 	*falseList = new vector<int>(MAKE_LIST(falseQuad));
 
 	REG_FREE(r1);
-	REG_FREE(r2);
+	if(r1!=r2)
+		REG_FREE(r2);
 }
 
 void copyRetAddrToStack(int numOfArgs)

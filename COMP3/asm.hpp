@@ -15,7 +15,7 @@ using namespace output;
 #define EMITDATA(str) CodeBuffer::instance().emitData(str)
 #define EMITFP EMIT("move $fp, $sp")
 #define REG_TO_STR(reg) RegPool::regToString(reg)
-#define REG_FREE(r) RegPool::freeReg(r)
+#define REG_FREE(r) RegPool::freeReg(&r)
 #define EMIT_OP(op,r1,r2) EMIT(op + REG_TO_STR(r1) + " ,"+ REG_TO_STR(r1)+" ," + REG_TO_STR(r2))
 #define MFLO(r) EMIT(string("mflo ") + REG_TO_STR(r1))
 #define MAKE_LIST(n) CodeBuffer::makelist(n)

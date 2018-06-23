@@ -14,7 +14,7 @@ using namespace output;
 
 #define REG_SIZE 4
 
-typedef enum reg_e {t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,s0,s1,s2,s3,s4,s5,s6,s7,MAX_REG} Reg;
+typedef enum reg_e {t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,s0,s1,s2,s3,s4,s5,s6,s7,MAX_REG,v0} Reg;
 
 class RegPool
 {
@@ -33,9 +33,10 @@ public:
 	static RegPool& getPoolInstance();
 	static string regToString(Reg r);
 	static Reg getAvailReg();
-	static void freeReg(Reg r);
+	static void freeReg(Reg *r);
 	static void regsSaveAll();
 	static void regsLoadAll();
+	static void testAllFree();
 };
 
 

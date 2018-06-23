@@ -113,6 +113,7 @@ S			:	Program EOF1 {
 															//tableStack.top()->print_scope();
 															tableStack.pop();
 															offsetStack.pop();
+															//RegPool::testAllFree();
 														}
 			;
 
@@ -386,6 +387,8 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															}
 															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
 															EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
+															EMIT("li " + REG_TO_STR(tmp) + ", 0");
+															EMIT("blt " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
 															REG_FREE(tmp);
 															REG_FREE($3->place);
 
@@ -403,8 +406,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 			|	Call SC									{	$$ = $1;
 															if ($$->type != OUR_VOID)
 															{
-																$$->place = REG_GET_AVAIL;
-																EMIT("move " + REG_TO_STR($$->place) + ", $v0");
+																$$->place = Reg(v0);
 															}
 														}
 			|	RETURN SC								{
@@ -479,17 +481,19 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															REG_FREE($2->place);
 															EMIT("jr $ra");
 														}
-			| 	IF Mark1 M Statement Mark2 M ELSE N Mark3 M Statement M Mark2  {
+			| 	IF Mark1 M Statement Mark2 M ELSE N Mark3 M Statement Mark2 M {
 															$$ = new Node();
+															EMIT_COMMENT("IF WITH ELSE");
 															$$->breaksList = new vector<int>(MERGE_LISTS(*($4->breaksList), *($11->breaksList)));
 															BACKPATCH(*($2->trueList), $3->nextLabel);
 															BACKPATCH(*($2->falseList), $10->nextLabel);
 															vector<int> tmpList;
 															tmpList.push_back($8->codeLineNum);
-															BACKPATCH(tmpList, $12->nextLabel);
+															BACKPATCH(tmpList, $13->nextLabel);
 															} %prec ELSE
 			| 	IF  Mark1 M Statement Mark2	M			  	{
 															$$ = $3;
+															EMIT_COMMENT("IF NO ELSE");
 															BACKPATCH(*($2->trueList), $3->nextLabel);
 															BACKPATCH(*($2->falseList), $6->nextLabel);
 															} %prec IF
@@ -501,11 +505,23 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															}
 															open_new_scope(true);
 															$$ = new Node();
+															EMIT_COMMENT("WHILE PRE STATEMNTS");
 															$$->breaksList = new vector<int>();
+															if ($4->place == MAX_REG)
+															{
+																$4->place = handleBoolVal($4->trueList, $4->falseList);
+															}
+															Reg tmp = REG_GET_AVAIL;
+															EMIT("li " + REG_TO_STR(tmp) + ",1");
+															$4->trueList->push_back(EMIT("beq " + REG_TO_STR($4->place) + ", " + REG_TO_STR(tmp) + ", "));
+															$4->falseList->push_back(EMIT("b "));
+															REG_FREE(tmp);
+															REG_FREE($4->place);
 														} M Statement Mark2 N M {
 															vector<int> *tmpList = new vector<int>();
 															tmpList->push_back($10->codeLineNum);
 															int temp = $10->codeLineNum;
+															EMIT_COMMENT("WHILE STATMENTS");
 															BACKPATCH(*($8->breaksList),$11->nextLabel);
 															BACKPATCH(*tmpList, $3->nextLabel);
 															BACKPATCH(*($4->trueList), $7->nextLabel);
@@ -530,12 +546,13 @@ Mark1		:		LPAREN Exp RPAREN					{
 															$$ = $2;
 															if ($2->place != MAX_REG)
 															{
+																EMIT_COMMENT("IF BOOL Condition");
 																Reg tmp = REG_GET_AVAIL;
 																EMIT("li " + REG_TO_STR(tmp) + ",1");
 																$2->trueList->push_back(EMIT("beq " + REG_TO_STR($2->place) + ", " + REG_TO_STR(tmp) + ", "));
 																$2->falseList->push_back(EMIT("b "));
 																REG_FREE(tmp);
-
+																REG_FREE($2->place);
 															}
 															open_new_scope(false);
 														} ;
@@ -563,6 +580,7 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 															{
 																if (!($3->expList[i]->isArray) && $3->expList[i]->type == OUR_BOOL && $3->expList[i]->place == MAX_REG)
 																{
+																	EMIT_COMMENT("BOOL EXP in PARAMS LIST");
 																	$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
 																}
 															}
@@ -668,6 +686,8 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															Reg tmp = REG_GET_AVAIL;
 															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
 															EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
+															EMIT("li " + REG_TO_STR(tmp) + ", 0");
+															EMIT("blt " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
 															REG_FREE(tmp);
 															REG_FREE($3->place);
 															EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
@@ -685,7 +705,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															{
 																$$ = new Node(OUR_INT);
 															}
-
+															EMIT_COMMENT("BINOPPM regs: " + REG_TO_STR($1->place) + ", " + REG_TO_STR($3->place));
 															$$->place = makeBinOpExp($2->id, $1->place, $3->place);
 															if ($1->isByte() && $3->isByte())
 															{
@@ -693,7 +713,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															}
 
 														}
-			| Exp BINOPMD Exp{ if (!($1->isNum() && $3->isNum()))
+			| Exp BINOPMD Exp							{ if (!($1->isNum() && $3->isNum()))
 														{
 															errorMismatch(yylineno);
 															exit(0);
@@ -718,7 +738,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															Node* node;
 															if (check_var_exists_id($1->id, &node))
 																{
-																	$$ = node;
+																	$$ = new Node(node);
 																}
 															else
 																{
@@ -728,21 +748,29 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															ostringstream ostr;
 															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
 															ostr << varPosInStack;
+															//TODO: should we free the reg in node?
 															$$->place = REG_GET_AVAIL;
-															if(!node->isArray){
+															if (!node->isArray) {
 																EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
 															}
 															else {
-																EMIT("li " + REG_TO_STR($$->place) + ", "+ostr.str());
+																EMIT("li " + REG_TO_STR($$->place) + ", " + ostr.str());
 																EMIT("add " + REG_TO_STR($$->place) + ", " + REG_TO_STR($$->place) + ",$fp");
-															}
+															}															
 														}
 			|	Call									{	$$ = $1;
-															$$->place = REG_GET_AVAIL;
+															if ($$->place == MAX_REG)
+															{
+																$$->place = REG_GET_AVAIL;
+															}
 															EMIT("move " + REG_TO_STR($$->place) + ", $v0");
 														}
 			|	NUM										{	
 															$$ = $1;
+															if ($1->place != MAX_REG)
+															{
+																REG_FREE($1->place);
+															}
 															$$->place = makeExp($1->id);
 														}
 			|	NUM B									{	
@@ -752,7 +780,11 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorByteTooLarge(yylineno, $1->id);
 																exit(0);
 															}
-															$$ = new Node(OUR_BYTE,val); 
+															$$ = new Node(OUR_BYTE,val);
+															if ($1->place != MAX_REG)
+															{
+																REG_FREE($1->place);
+															}
 															$$->place = makeExp($1->id); 
 														}
 			|	STRING									{	$$ = new Node(OUR_STRING); 
@@ -763,11 +795,13 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$->place = REG_GET_AVAIL;
 															EMIT("la " +REG_TO_STR($$->place) + ", " + label.str()); 
 														}
-			|	TRUE									{	$$ = new Node(OUR_BOOL); 
+			|	TRUE									{	$$ = new Node(OUR_BOOL);
+															EMIT_COMMENT("TRUE");
 															$$->falseList = new vector<int>();
 															$$->trueList = new vector<int>(MAKE_LIST(EMIT("b ")));
 														}
 			|	FALSE									{	$$ = new Node(OUR_BOOL); 
+															EMIT_COMMENT("FALSE");
 															$$->trueList = new vector<int>();
 															$$->falseList = new vector<int>(MAKE_LIST(EMIT("b ")));
 														}
@@ -776,10 +810,19 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															EMIT_COMMENT("AND");
 															$$ = new Node(OUR_BOOL);
 															BACKPATCH(*($1->trueList), $3->nextLabel);
 															$$->trueList = new vector<int>(*($4->trueList));
 															$$->falseList = new vector<int>(MERGE_LISTS(*($1->falseList), *($4->falseList)));
+															if ($1->place != MAX_REG)
+															{
+																REG_FREE($1->place);
+															}
+															if ($4->place != MAX_REG)
+															{
+																REG_FREE($4->place);
+															}
 															
 														}
 			|	Exp	OR M Exp								{	if(!($1->isBool() && $4->isBool()))
@@ -787,16 +830,26 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															EMIT_COMMENT("OR");
 															$$ = new Node(OUR_BOOL);
 															BACKPATCH(*($1->falseList), $3->nextLabel);
 															$$->trueList = new vector<int>(MERGE_LISTS(*($1->trueList), *($4->trueList)));
 															$$->falseList = new vector<int>(*($4->falseList));
+															if ($1->place != MAX_REG)
+															{
+																REG_FREE($1->place);
+															}
+															if ($4->place != MAX_REG)
+															{
+																REG_FREE($4->place);
+															}
 														}
 			|	Exp	RELOP Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
+															EMIT_COMMENT("RELOP");
 															$$ = new Node(OUR_BOOL);
 															Node *tmp = $$;
 															makeRelOpExp($2->id, $1->place, $3->place, &($$->trueList), &($$->falseList));
@@ -806,9 +859,16 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 																errorMismatch(yylineno);
 																exit(0);
 															}
-															$$ = new Node(OUR_BOOL); 
+															$$ = new Node(OUR_BOOL);
+															EMIT_COMMENT("NOT");
 															$$->trueList = $2->falseList;
 															$$->falseList = $2->trueList;
+															if ($2->place != MAX_REG)
+															{
+																$$->place = REG_GET_AVAIL;
+																EMIT("not " + REG_TO_STR($$->place) + ", " + REG_TO_STR($2->place));
+																REG_FREE($2->place);
+															}
 														}
 			;
 
