@@ -146,7 +146,8 @@ Reg handleBoolVal(vector<int> *trueList, vector<int> *falseList) {
 	string falseLable = NEXT_LABEL;
 	EMIT("li " + REG_TO_STR(place) + ", 0");
 	string origCode = NEXT_LABEL;
-
+	
+	EMIT_COMMENT("handleBoolVal");
 	BACKPATCH(MAKE_LIST(branch), origCode);
 	BACKPATCH(*trueList, trueLabel);
 	BACKPATCH(*falseList, falseLable);

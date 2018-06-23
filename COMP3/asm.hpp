@@ -12,6 +12,7 @@ using namespace std;
 using namespace output;
 
 #define EMIT(str) CodeBuffer::instance().emit(str)
+#define EMIT_COMMENT(comment) EMIT(string("#")+comment)
 #define EMITDATA(str) CodeBuffer::instance().emitData(str)
 #define EMITFP EMIT("move $fp, $sp")
 #define REG_TO_STR(reg) RegPool::regToString(reg)
@@ -20,12 +21,12 @@ using namespace output;
 #define MFLO(r) EMIT(string("mflo ") + REG_TO_STR(r1))
 #define MAKE_LIST(n) CodeBuffer::makelist(n)
 #define NEXT_LABEL CodeBuffer::instance().genLabel()
-#define BACKPATCH(address_list,loc) CodeBuffer::instance().bpatch(address_list,loc)
+#define BACKPATCH(address_list,loc) EMIT_COMMENT("BP");CodeBuffer::instance().bpatch(address_list,loc)
 #define MERGE_LISTS(l1,l2) CodeBuffer::merge(l1,l2)
 #define REG_GET_AVAIL RegPool::getAvailReg()
 #define SAVE_ALL_REGS RegPool::regsSaveAll()
 #define LOAD_ALL_REGS RegPool::regsLoadAll()
-#define EMIT_COMMENT(comment) EMIT(string("#")+comment)
+
 
 Reg makeExp(string val);
 Reg makeBinOpExp(string val, Reg r1, Reg r2);

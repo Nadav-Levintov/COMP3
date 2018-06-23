@@ -254,13 +254,10 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															offsetStack.top() ++;
 															if ($4->type == OUR_BOOL && $4->place == MAX_REG)
 															{
+																EMIT_COMMENT("Type ID ASSIGN Exp SC");
 																$4->place = handleBoolVal($4->trueList, $4->falseList);
 															}
 															EMIT("subu $sp, $sp, 4");
-															if ($4->type == OUR_BOOL && $4->place == MAX_REG)
-															{
-																$4->place = handleBoolVal($4->trueList, $4->falseList);
-															}
 															EMIT("sw " + REG_TO_STR($4->place) + ", 0($sp)");
 															REG_FREE($4->place);
 														}
@@ -346,6 +343,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															if(!node->isArray){
 																if ($3->type == OUR_BOOL && $3->place == MAX_REG)
 																{
+																	EMIT_COMMENT("ID ASSIGN Exp SC");
 																	$3->place = handleBoolVal($3->trueList, $3->falseList);
 																}
 																EMIT("sw " + REG_TO_STR($3->place) + ", " + ostr.str() + "($fp)");
@@ -383,6 +381,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															Reg tmp = REG_GET_AVAIL;
 															if ($3->type == OUR_BOOL && $3->place == MAX_REG)
 															{
+																EMIT_COMMENT("ID LBRACK Exp RBRACK ASSIGN Exp SC");
 																$3->place = handleBoolVal($3->trueList, $3->falseList);
 															}
 															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
@@ -398,6 +397,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															ostr << varPosInStack;
 															if ($6->type == OUR_BOOL && $6->place == MAX_REG)
 															{
+																EMIT_COMMENT("ID LBRACK Exp RBRACK ASSIGN Exp SC");
 																$6->place = handleBoolVal($6->trueList, $6->falseList);
 															}
 															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
@@ -475,6 +475,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 																EMIT("add $sp, $sp, " + ostr.str());
 															if ($2->type == OUR_BOOL && $2->place==MAX_REG)
 															{
+																EMIT_COMMENT("RETURN Exp SC");
 																$2->place = handleBoolVal($2->trueList, $2->falseList);
 															}
 															EMIT("move $v0, " + REG_TO_STR($2->place));
@@ -492,7 +493,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															BACKPATCH(tmpList, $13->nextLabel);
 															} %prec ELSE
 			| 	IF  Mark1 M Statement Mark2	M			  	{
-															$$ = $3;
+															$$ = new Node();
 															EMIT_COMMENT("IF NO ELSE");
 															BACKPATCH(*($2->trueList), $3->nextLabel);
 															BACKPATCH(*($2->falseList), $6->nextLabel);
@@ -509,6 +510,7 @@ Statement	:	LBRACE Mark3 Statements Mark2 RBRACE
 															$$->breaksList = new vector<int>();
 															if ($4->place == MAX_REG)
 															{
+																EMIT_COMMENT("WHILE LPAREN M Exp RPAREN ");
 																$4->place = handleBoolVal($4->trueList, $4->falseList);
 															}
 															Reg tmp = REG_GET_AVAIL;
@@ -677,6 +679,8 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															$$ = new Node(node);
 															$$->isArray = false;
 															$$->place = REG_GET_AVAIL;
+															$$->trueList = new vector<int>;
+															$$->falseList = new vector<int>;
 															ostringstream ostr;
 															ostringstream ostr2;
 															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
@@ -750,6 +754,8 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															ostr << varPosInStack;
 															//TODO: should we free the reg in node?
 															$$->place = REG_GET_AVAIL;
+															$$->trueList = new vector<int>;
+															$$->falseList = new vector<int>;
 															if (!node->isArray) {
 																EMIT("lw " + REG_TO_STR($$->place) + ", " + ostr.str() + "($fp)");
 															}
