@@ -363,45 +363,49 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 															}
 															REG_FREE($3->place);
 														}
-			|	ID LBRACK Exp RBRACK ASSIGN Exp SC		{
+			|	ID LBRACK Exp RBRACK ASSIGN					{
+																Node* node;
+																if (!check_var_exists_id($1->id, &node))
+																{
+																	errorUndef(yylineno, $1->id);
+																	exit(0);
+																}
+																if ($3->place != MAX_REG)
+																{
+																	ostringstream ostr2;
+																	ostr2 << node->arraySize;
+																	Reg tmp = REG_GET_AVAIL;
+																	EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
+																	EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
+																	EMIT("li " + REG_TO_STR(tmp) + ", 0");
+																	EMIT("blt " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
+																	REG_FREE(tmp);
+																	REG_FREE($3->place);
+																}
+															} Exp SC		{
 															Node* node;
 															if (!check_var_exists_id($1->id, &node))
 															{
 																errorUndef(yylineno, $1->id);
 																exit(0);
 															}
-															if (!isAssignable(node->type, false, node->arraySize, $6->type, $6->isArray , $6->arraySize) || !$3->isNum() || !node->isArray)
+															if (!isAssignable(node->type, false, node->arraySize, $7->type, $7->isArray , $7->arraySize) || !$3->isNum() || !node->isArray)
 															{
 																errorMismatch(yylineno);
 																exit(0);
 															}
 
-															ostringstream ostr2;
-															ostr2 << node->arraySize;
-															Reg tmp = REG_GET_AVAIL;
-															if ($3->type == OUR_BOOL && $3->place == MAX_REG)
-															{
-																EMIT_COMMENT("ID LBRACK Exp RBRACK ASSIGN Exp SC");
-																$3->place = handleBoolVal($3->trueList, $3->falseList);
-															}
-															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr2.str());
-															EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
-															EMIT("li " + REG_TO_STR(tmp) + ", 0");
-															EMIT("blt " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
-															REG_FREE(tmp);
-															REG_FREE($3->place);
-
 															ostringstream ostr;
 															int varPosInStack = -4 * get_pos_var_exists_id($1->id);
-															varPosInStack += 4 * ($3->intVal);
+															varPosInStack -= 4 * ($3->intVal);
 															ostr << varPosInStack;
-															if ($6->type == OUR_BOOL && $6->place == MAX_REG)
+															if ($7->type == OUR_BOOL && $7->place == MAX_REG)
 															{
 																EMIT_COMMENT("ID LBRACK Exp RBRACK ASSIGN Exp SC");
-																$6->place = handleBoolVal($6->trueList, $6->falseList);
+																$7->place = handleBoolVal($7->trueList, $7->falseList);
 															}
-															EMIT("sw " + REG_TO_STR($6->place) + ", " + ostr.str() + "($fp)");
-															REG_FREE($6->place);
+															EMIT("sw " + REG_TO_STR($7->place) + ", " + ostr.str() + "($fp)");
+															REG_FREE($7->place);
 														}
 			|	Call SC									{	$$ = $1;
 															if ($$->type != OUR_VOID)
