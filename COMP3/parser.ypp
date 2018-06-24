@@ -379,7 +379,25 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 																	EMIT("bge " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
 																	EMIT("li " + REG_TO_STR(tmp) + ", 0");
 																	EMIT("blt " + REG_TO_STR($3->place) + ", " + REG_TO_STR(tmp) + ", outOfBoundErr");
-																	REG_FREE(tmp);
+																	
+
+																	ostringstream ostr;
+																	int varPosInStack = -1 * get_pos_var_exists_id($1->id);
+																	//varPosInStack += 1;//(varPosInStack <= 0) ? 1 : 2;
+																	//varPosInStack *= 4;
+																	//varPosInStack -= 4 * (($3->intVal)+1);
+																	
+																	Reg tmp2 = REG_GET_AVAIL;
+																	ostr << varPosInStack;
+																	EMIT("li " + REG_TO_STR(tmp) + ", " + ostr.str());
+																	EMIT("li " + REG_TO_STR(tmp2) + ", 4");
+																	EMIT("sub " + REG_TO_STR(tmp) + ", " + REG_TO_STR(tmp) + ", " + REG_TO_STR($3->place));
+																	EMIT("mult " + REG_TO_STR(tmp) + ", " + REG_TO_STR(tmp2));
+																	EMIT("mflo " + REG_TO_STR(tmp));
+																	EMIT("add " + REG_TO_STR(tmp) + ", " + REG_TO_STR(tmp) + ", $fp");
+																	REG_FREE(tmp2);
+																	$1->place = tmp;// save for after the rest
+
 																}
 															} Exp SC		{
 															Node* node;
@@ -393,32 +411,16 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 																errorMismatch(yylineno);
 																exit(0);
 															}
-
-															ostringstream ostr;
-															int varPosInStack = -1*get_pos_var_exists_id($1->id);
-															//varPosInStack += 1;//(varPosInStack <= 0) ? 1 : 2;
-															//varPosInStack *= 4;
-															//varPosInStack -= 4 * (($3->intVal)+1);
-															Reg tmp = REG_GET_AVAIL;
-															Reg tmp2 = REG_GET_AVAIL;
-															ostr << varPosInStack;
-															EMIT("li " + REG_TO_STR(tmp) + ", " + ostr.str());
-															EMIT("li " + REG_TO_STR(tmp2) + ", 4");
-															EMIT("sub " + REG_TO_STR(tmp) + ", " + REG_TO_STR(tmp) + ", "+ REG_TO_STR($3->place));
-															EMIT("mult " + REG_TO_STR(tmp) + ", " + REG_TO_STR(tmp2));
-															EMIT("mflo " + REG_TO_STR(tmp));
-															EMIT("add " + REG_TO_STR(tmp) + ", " + REG_TO_STR(tmp) + ", $fp");
-															REG_FREE(tmp2);
-
+																														
 															if ($7->type == OUR_BOOL && $7->place == MAX_REG)
 															{
 																EMIT_COMMENT("ID LBRACK Exp RBRACK ASSIGN Exp SC");
 																$7->place = handleBoolVal($7->trueList, $7->falseList);
 															}
-															EMIT("sw " + REG_TO_STR($7->place) + ", 0("+REG_TO_STR(tmp)+")");
+															EMIT("sw " + REG_TO_STR($7->place) + ", 0("+REG_TO_STR($1->place)+")");
 															REG_FREE($7->place);
 															REG_FREE($3->place);
-															REG_FREE(tmp);
+															REG_FREE($1->place);
 															
 
 														}
@@ -747,6 +749,7 @@ Exp			:	LPAREN	Exp RPAREN						{	$$ = $2; }
 															
 															EMIT("lw " + REG_TO_STR($$->place) + ", 0(" + REG_TO_STR(tmp) + ")");
 															REG_FREE(tmp);
+															REG_FREE($3->place);
 														}
 			|	Exp BINOPPM Exp							{	if(!($1->isNum() && $3->isNum()))
 															{
