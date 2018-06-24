@@ -226,6 +226,7 @@ class Table
 {
 public:
 	bool is_while;
+	bool is_func;
 	Type_enum retType;
 	Table() {}
 	Table(bool is_while = false, Type_enum retType = TYPE_ERROR) :is_while(is_while), retType(retType) {}

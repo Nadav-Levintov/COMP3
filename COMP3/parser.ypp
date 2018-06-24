@@ -34,6 +34,7 @@
 	bool isAssignable(Type_enum typeAssignedTo, bool assignedToIsArray, int assignedToSize, Type_enum TypeAssigned, bool assignedIsArray, int assingedSize);
 	bool isAssignable(Node* assignedTo, Node* assigned);
 	int get_pos_var_exists_id(string id);
+	void return_from_func_clean_up();
 	void clear_ostr(ostringstream *ostr)
 	{
 		ostr->str("");
@@ -438,29 +439,7 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 																exit(0);
 															}
 
-															VarTable* varTable = static_cast<VarTable*>(tableStack.top());
-
-															int numOfCellsToFree = 0;
-															vector<VarTableEntry*> current_table_rows = varTable->rows;
-															for (int i = 0; i< current_table_rows.size(); i++)
-															{
-																if (current_table_rows[i]->offset >= 0)
-																{
-																	if (current_table_rows[i]->node->isArray)
-																	{
-																		numOfCellsToFree += current_table_rows[i]->node->arraySize;
-																	}
-																	else
-																	{
-																		numOfCellsToFree++;
-																	}
-																}
-															}
-															ostringstream ostr;
-															numOfCellsToFree *= 4;
-															ostr << numOfCellsToFree;
-															if(numOfCellsToFree)
-																EMIT("add $sp, $sp, " + ostr.str());
+															return_from_func_clean_up();
 															EMIT("jr $ra");
 														}
 			|	RETURN Exp SC							{
@@ -470,33 +449,10 @@ Statement:	LBRACE Mark3 Statements Mark2 RBRACE{ $$ = $3; }
 																errorMismatch(yylineno);
 																exit(0);
 															}
-
-															VarTable* varTable = static_cast<VarTable*>(tableStack.top());
-
-															int numOfCellsToFree = 0;
-															vector<VarTableEntry*> current_table_rows = varTable->rows;
-															for (int i = 0; i< current_table_rows.size(); i++)
-															{
-																if (current_table_rows[i]->offset >= 0)
-																{
-																	if (current_table_rows[i]->node->isArray)
-																	{
-																		numOfCellsToFree += current_table_rows[i]->node->arraySize;
-																	}
-																	else
-																	{
-																		numOfCellsToFree++;
-																	}
-																}
-															}
-															ostringstream ostr;
-															numOfCellsToFree *= 4;
-															ostr << numOfCellsToFree;
-															if (numOfCellsToFree)
-																EMIT("add $sp, $sp, " + ostr.str());
+															EMIT_COMMENT("RETURN Exp SC");
+															return_from_func_clean_up();
 															if ($2->type == OUR_BOOL && $2->place==MAX_REG)
 															{
-																EMIT_COMMENT("RETURN Exp SC");
 																$2->place = handleBoolVal($2->trueList, $2->falseList);
 															}
 															EMIT("move $v0, " + REG_TO_STR($2->place));
@@ -1052,6 +1008,7 @@ void open_new_scope(bool is_break_allowed=false)
 void open_new_function_scope(Type_enum retType)
 {
 	VarTable *v = new VarTable(false, retType);
+	v->is_func = true;
 	tableStack.push(v);
 	offsetStack.push(offsetStack.top());
 }
@@ -1083,6 +1040,40 @@ void close_scope(bool is_break) {
 				numOfCellsToFree++;
 			}
 		}
+	}
+	ostringstream ostr;
+	numOfCellsToFree *= 4;
+	ostr << numOfCellsToFree;
+	if (numOfCellsToFree)
+		EMIT("add $sp, $sp, " + ostr.str());
+}
+
+void return_from_func_clean_up() {
+
+	VarTable* varTable = static_cast<VarTable*>(tableStack.top());
+
+	int numOfCellsToFree = 0;
+	vector<VarTableEntry*> current_table_rows = varTable->rows;
+	for (int i = 0; i< current_table_rows.size(); i++)
+	{
+		if (current_table_rows[i]->offset >= 0)
+		{
+			if (current_table_rows[i]->node->isArray)
+			{
+				numOfCellsToFree += current_table_rows[i]->node->arraySize;
+			}
+			else
+			{
+				numOfCellsToFree++;
+			}
+		}
+	}
+
+	if (!varTable->is_func)
+	{
+		tableStack.pop();
+		return_from_func_clean_up();
+		tableStack.push(varTable);
 	}
 	ostringstream ostr;
 	numOfCellsToFree *= 4;
