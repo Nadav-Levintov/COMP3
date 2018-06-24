@@ -49,8 +49,8 @@
 %token BYTE
 %token B
 %token BOOL
-%left AND
 %left OR
+%left AND
 %right NOT
 %token TRUE
 %token FALSE
