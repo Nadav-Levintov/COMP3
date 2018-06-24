@@ -122,7 +122,7 @@ void createOutOfBoundErrFunc() {
 }
 
 void createPrintFunc() {
-	EMIT("print:");
+	EMIT("func_print:");
 	EMIT("lw $a0,0($sp)");
 	EMIT("li $v0,4");
 	EMIT("syscall");
@@ -130,7 +130,7 @@ void createPrintFunc() {
 }
 
 void createPrintiFunc() {
-	EMIT("printi:");
+	EMIT("func_printi:");
 	EMIT("lw $a0,0($sp)");
 	EMIT("li $v0,1");
 	EMIT("syscall");

@@ -162,7 +162,15 @@ FuncDecl	:	RetType ID LPAREN Formals RPAREN		{
 																dynamic_cast<VarTable*>(tableStack.top())->push(var_entry);
 															}
 															EMIT_COMMENT("*************");
-															EMIT($2->id + ":");
+															if (($2->id) == "main")
+															{
+																EMIT($2->id + ":");
+															}
+															else
+															{
+																EMIT("func_"+$2->id + ":");
+															}
+															
 															EMITFP;
 														} LBRACE Statements RBRACE {
 															close_scope();
@@ -599,7 +607,13 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 																}
 																REG_FREE($3->expList[i]->place);
 															}
-															EMIT("jal " + $1->id);
+															if (($1->id) == "main")
+															{
+																EMIT("jal " + $1->id);
+															}else
+															{
+																EMIT("jal func_" + $1->id);
+															}
 															int memToFree = 0;
 															for (int i = 0; i < $3->expList.size(); i++)
 															{
@@ -637,7 +651,14 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 															EMIT("sw $fp, 0($sp)");
 															EMIT("subu $sp ,$sp ,4");
 															EMIT("sw $ra, 0($sp)");
+															if (($1->id) == "main")
+															{
 															EMIT("jal " + $1->id);
+															}
+															else
+															{
+																EMIT("jal func_" + $1->id);
+															}
 															EMIT("lw $ra, 0($sp)");
 															EMIT("addu $sp ,$sp ,4");
 															EMIT("lw $fp, 0($sp)");
