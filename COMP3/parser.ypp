@@ -605,21 +605,21 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 																errorUndefFunc(yylineno,$1->id);
 																exit(0);
 															}
-															for (int i = 0; i < $3->expList.size(); i++)
+															/*for (int i = $3->expList.size() -1; i >= 0 ; i--)
 															{
 																if (!($3->expList[i]->isArray) && $3->expList[i]->type == OUR_BOOL && $3->expList[i]->place == MAX_REG)
 																{
 																	EMIT_COMMENT("BOOL EXP in PARAMS LIST");
 																	$3->expList[i]->place = handleBoolVal($3->expList[i]->trueList, $3->expList[i]->falseList);
 																}
-															}
+															}*/
 															SAVE_ALL_REGS;
 															EMIT("subu $sp ,$sp ,4");
 															EMIT("sw $fp, 0($sp)");
 															EMIT("subu $sp ,$sp ,4");
 															EMIT("sw $ra, 0($sp)");
 															//Putting parameters on stack
-															for (int i = 0; i < $3->expList.size(); i++)
+															for (int i = $3->expList.size()-1; i >=0; i--)
 															{
 																if ($3->expList[i]->isArray)
 																{
@@ -690,10 +690,23 @@ Call		:	ID LPAREN ExpList RPAREN				{ Type_enum *retType;
 														}
 			;
 
-ExpList		:	Exp										{	Node *node = new Node();
-															node->expList.push_back($1);
-															$$ = node; }
-			|	Exp COMMA ExpList						{	Node *l = ($3);
+ExpList		:	Exp											{	
+																Node *node = new Node();
+																if (!($1->isArray) && $1->type == OUR_BOOL && $1->place == MAX_REG)
+																	{
+																		EMIT_COMMENT("BOOL EXP in PARAMS LIST");
+																		$1->place = handleBoolVal($1->trueList, $1->falseList);
+																	}
+																node->expList.push_back($1);
+																$$ = node; 
+															}
+			|	Exp COMMA									{
+																if (!($1->isArray) && $1->type == OUR_BOOL && $1->place == MAX_REG)
+																{
+																	EMIT_COMMENT("BOOL EXP in PARAMS LIST");
+																	$1->place = handleBoolVal($1->trueList, $1->falseList);
+																}
+															} ExpList {	Node *l = ($4);
 															l->expList.insert(l->expList.begin(),$1);
 															$$ = l; }
 			;
